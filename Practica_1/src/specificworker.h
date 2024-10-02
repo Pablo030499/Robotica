@@ -33,22 +33,25 @@
 
 class SpecificWorker : public GenericWorker
 {
-Q_OBJECT
-public:
-	SpecificWorker(TuplePrx tprx, bool startup_check);
-	~SpecificWorker();
-	bool setParams(RoboCompCommonBehavior::ParameterList params);
+	Q_OBJECT
+	public:
+		SpecificWorker(TuplePrx tprx, bool startup_check);
+		~SpecificWorker();
+		bool setParams(RoboCompCommonBehavior::ParameterList params);
 
+		enum class State {	advance , rotate};
+		State estado = State::advance;
 
-
-public slots:
-	void initialize();
-	void compute();
-	void emergency();
-	void restore();
-	int startup_check();
-private:
-	bool startup_check_flag;
+	public slots:
+		void initialize();
+		void compute();
+		void emergency();
+		void restore();
+		int startup_check();
+	private:
+		bool startup_check_flag;
+		void avanzar(const RoboCompLaser::TLaserData &ldata);
+		void rotar(const RoboCompLaser::TLaserData &ldata);
 
 };
 

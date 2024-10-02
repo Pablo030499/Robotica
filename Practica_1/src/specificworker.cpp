@@ -75,24 +75,48 @@ void SpecificWorker::initialize()
 
 }
 
-void SpecificWorker::compute()
-{
+
+
+void SpecificWorker::compute() {
 	RoboCompLaser::TLaserData ldata;
-	try {
-		ldata = laser_proxy->getLaserData();}
+	try { ldata = laser_proxy->getLaserData();}
 	catch (const Ice::Exception& e) {std::cout << "Exception: " << e.what() << std::endl;}
 
-	for(auto &d : ldata)
-		qDebug() << d.dist << d.angle;
-	qDebug() << "-----------------------------------------";
+	// for(auto &d : ldata)
+	// 	qDebug() << d.dist << d.angle;
+	// qDebug() << "-----------------------------------------";
 
-	float adv = 0.f; float side = 0; float rot = 0.f;
-	try {
-		ldata = omnirobot_proxy->setSpeedBase(adv, side, rot);
+	switch(estado)
+	{
+		case State::advance:
+			avanzar(ldata);
+		break;
+		case State::rotate:
+			rotar(ldata);
+		break;
 	}
+
+	float adv = 500; float side = 0; float rot = 0.f;
+	try {omnirobot_proxy->setSpeedBase(adv, side, rot);}
 	catch (const Ice::Exception& e) {std::cout << "Exception: " << e.what() << std::endl;}
 }
 
+void SpecificWorker::avanzar(const RoboCompLaser::TLaserData &ldata {
+
+	 int morro =ldata.size()/2;
+
+	float adv = 500; float side = 0; float rot = 0.0;
+	try {omnirobot_proxy->setSpeedBase(adv, side, rot);}
+	catch (const Ice::Exception& e) {std::cout << "Exception: " << e.what() << std::endl;}
+}
+
+void SpecificWorker::rotar(const RoboCompLaser::TLaserData &ldata) {
+	float adv = 0; float side = 0; float rot = 0.5*0.5;
+	try {omnirobot_proxy->setSpeedBase(adv, side, rot);}
+	catch (const Ice::Exception& e) {std::cout << "Exception: " << e.what() << std::endl;}
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
 void SpecificWorker::emergency()
 {
     std::cout << "Emergency worker" << std::endl;
