@@ -71,8 +71,12 @@ void SpecificWorker::compute()
     try{ ldata =  lidar3d_proxy->getLidarData("bpearl", 0, 2*M_PI, 1);}
     catch(const Ice::Exception &e){std::cout << e << std::endl;}
 
-    auto p_filter = std::ranges::views::filter(ldata.points,
-                                               [](auto  &a){ return a.z > 100 and a.z < 3000 and a.distance2d > 200;});
+    //auto p_filter = std::ranges::views::filter(ldata.points,
+    //                                           [](auto  &a){ return a.z > 100 and a.z < 3000 and a.distance2d > 200;});
+	RoboCompLidar3D::TPoints p_filter;
+	std::ranges::copy_if(ldata.points, std::back_inserter(p_filter),
+											   [](auto  &a){ return a.z > 100 and a.z < 300 and a.distance2d > 200;});
+
 
     draw_lidar(p_filter, &viewer->scene);
 
@@ -106,6 +110,8 @@ void SpecificWorker::compute()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 SpecificWorker::RetVal SpecificWorker::forward(auto &filtered_points)
 {
+	float offset = 3;
+	auto p_min = std::min_element(filtered_points.begin()+offset, filtered_points.end()-offset, [](auto &a, auto &b){return a.distance2d < b.distance2d;});
 
     return SpecificWorker::RetVal();
 }
