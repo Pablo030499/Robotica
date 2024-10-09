@@ -12,7 +12,6 @@ LIST(APPEND HEADERS
   $ENV{ROBOCOMP}/classes/abstract_graphic_viewer/abstract_graphic_viewer.h
 )
 
-
-LIST(APPEND LIBS ${LIBS}  )
-
+add_definitions(-std=c++2b)
+LIST(APPEND LIBS ${LIBS})
 

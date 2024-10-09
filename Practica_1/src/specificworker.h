@@ -31,6 +31,9 @@
 
 #include <genericworker.h>
 #include "abstract_graphic_viewer/abstract_graphic_viewer.h"
+#include <expected>
+#include <random>
+
 
 class SpecificWorker : public GenericWorker
 {
@@ -52,10 +55,18 @@ class SpecificWorker : public GenericWorker
         {
             float ROBOT_WIDTH = 460;  // mm
             float ROBOT_LENGTH = 480;  // mm
+            float MAX_ADV_SPEED = 1000; // mm/s
+            float MAX_ROT_SPEED = 1; // rad/s
+            float STOP_THRESHOLD = MAX_ADV_SPEED*0.7; // mm
+            float ADVANCE_THRESHOLD = ROBOT_WIDTH * 2; // mm
+            float LIDAR_OFFSET = 9.f/10.f; // eight tenths of vector's half size
+            float LIDAR_FRONT_SECTION = 0.5; // rads, aprox 30 degrees
             std::string LIDAR_NAME_LOW = "bpearl";
             std::string LIDAR_NAME_HIGH = "helios";
-            //QRectF GRID_MAX_DIM{-6000, -6000, 12000, 12000};
             QRectF GRID_MAX_DIM{-5000, 2500, 10000, -5000};
+            float MIN_WALL_DISTANCE = 200;
+            float MAX_WALL_DISTANCE = 400;
+            float DESIRED_WALL_DISTANCE = 300;
 
         };
         Params params;
@@ -64,13 +75,19 @@ class SpecificWorker : public GenericWorker
         AbstractGraphicViewer *viewer;
 
         // state machine
-        enum class STATE {FORWARD, TURN};
+        enum class STATE {FORWARD, TURN, WALL};
         STATE state = STATE::FORWARD;
 
         using RetVal = std::tuple<STATE, float, float>;
         RetVal forward(auto &filtered_points);
         RetVal turn(auto &filtered_points);
-        void draw_lidar(auto &filtered_points, QGraphicsScene *scene) const;
+        RetVal wall(auto &filtered_points);
+        void draw_lidar(auto &filtered_points, QGraphicsScene *scene);
+        QGraphicsPolygonItem* robot_draw;
+        std::expected<int, string> closest_lidar_index_to_given_angle(const auto &points, float angle);
+
+        // random number generator
+        std::random_device rd;
 };
 
 #endif
