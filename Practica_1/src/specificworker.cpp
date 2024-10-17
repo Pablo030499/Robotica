@@ -19,6 +19,9 @@
 #include <ranges>
 #include "specificworker.h"
 
+static int cont_izq = 0;
+static int cont_dere = 0;
+
 /**
 * \brief Default constructor
 */
@@ -126,6 +129,8 @@ void SpecificWorker::compute()
  */
 SpecificWorker::RetVal SpecificWorker::forward(auto &points)
 {
+    auto wall_point = std::min_element(std::begin(points) , std::end(points), [](auto &a, auto &b)
+        { return a.distance2d < b.distance2d; });
     // check if the central part of the filtered_points vector has a minimum lower than the size of the robot
     auto offset_begin = closest_lidar_index_to_given_angle(points, -params.LIDAR_FRONT_SECTION);
     auto offset_end = closest_lidar_index_to_given_angle(points, params.LIDAR_FRONT_SECTION);
@@ -138,10 +143,14 @@ SpecificWorker::RetVal SpecificWorker::forward(auto &points)
         if (min_point != points.end() and min_point->distance2d < params.STOP_THRESHOLD) {
             return RetVal(STATE::TURN, 0.f, 0.f);  // stop and change state if obstacle detected
         }
-        else {
-            //return RetVal(STATE::FORWARD, params.MAX_ADV_SPEED, 0.f);
-           return RetVal(STATE::WALL, params.MAX_ADV_SPEED, 0.f);
+        if(wall_point->distance2d <= params.WALL_UMBRAL) {
+            qWarning() << "if(min_point->distance2d < params.WALL_UMBRAL) -> WALL de FORWARD";
+            return RetVal(STATE::WALL, params.MAX_ADV_SPEED, 0.f);
         }
+        if(wall_point->distance2d > params.WALL_UMBRAL) {
+            return RetVal(STATE::SPIRAL, params.MAX_ADV_SPEED, 0.f);
+        }
+
     }
     else // no valid readings
     {
@@ -179,13 +188,13 @@ SpecificWorker::RetVal SpecificWorker::turn(auto &points)
         qWarning() << "No valid readings. Stopping";
         return RetVal(STATE::FORWARD, 0.f, 0.f);
     }
-
+    qWarning() << "Ejecutando el Turn";
     auto min_point = std::min_element(std::begin(points) + offset_begin.value(), std::begin(points) + offset_end.value(), [](auto &a, auto &b)
     { return a.distance2d < b.distance2d; });
     if (min_point != std::end(points) and min_point->distance2d > params.ADVANCE_THRESHOLD)
     {
         first_time = true;
-        return RetVal(STATE::FORWARD, 0.f, 0.f);
+        return RetVal(STATE::FORWARD, params.MAX_ADV_SPEED, 0.f);
     }
 
     /// Keep doing my business
@@ -203,7 +212,14 @@ SpecificWorker::RetVal SpecificWorker::turn(auto &points)
             sign = min_point_all->phi > 0 ? -1 : 1;
         first_time = false;
     }
-    return RetVal(STATE::TURN, 0.f, sign * params.MAX_ROT_SPEED);
+    if(cont_izq > cont_dere) {
+        cont_izq = 0;
+        cont_dere = 0;
+        return RetVal(STATE::TURN, 0.f, 1 * params.MAX_ROT_SPEED);
+    }
+        cont_izq = 0;
+        cont_dere = 0;
+    return RetVal(STATE::TURN, 0.f, -1 * params.MAX_ROT_SPEED);
 }
 
 /**
@@ -223,35 +239,42 @@ SpecificWorker::RetVal SpecificWorker::wall(auto &points)
     }
 
     //Continuamos con el wall.
-    auto wall_point = std::min_element(std::begin(points) , std::end(points), [](auto &a, auto &b)
+    auto wall_point = std::min_element(std::begin(points) + 0.6 , std::end(points) + 0.8, [](auto &a, auto &b)
         { return a.distance2d < b.distance2d; });
 
-    qWarning() << "ejecutando wall";
 
-    float error = wall_point->distance2d - params.MIN_WALL_DISTANCE;
-    float freno_frot = (1/400)*error;
-    float freno_fadv = (1/params.MAX_ROT_SPEED)*freno_frot+1;
+    float error = std::abs(params.MIN_WALL_DISTANCE - wall_point->distance2d);
+    float freno_frot= (1/params.ROBOT_WIDTH)*error;
+    float freno_fadv = (1/params.ROBOT_WIDTH)*(freno_frot)+1;
 
-    if(wall_point->phi < 0.f && wall_point->distance2d < params.DELTA_WALL) {
-        if(wall_point->distance2d < params.MIN_WALL_DISTANCE - params.DELTA_WALL) {
-            qWarning() << "ha entrado en wall derecha, min";
-            return RetVal(STATE::WALL, params.MAX_ADV_SPEED, params.MAX_ROT_SPEED);
+    if(wall_point->phi < 0.f && wall_point->distance2d <= params.WALL_UMBRAL) {
+        qWarning() << wall_point->phi;
+        cont_izq++;
+        if(wall_point->distance2d < params.MIN_WALL_DISTANCE) {
+            qWarning() << "angulo negativo, la distancia es minima";
+            return RetVal(STATE::WALL, params.MAX_ADV_SPEED*freno_fadv, params.MAX_ROT_SPEED*freno_frot);
         }
-        if(wall_point->distance2d > params.MAX_WALL_DISTANCE + params.DELTA_WALL && wall_point->distance2d < params.WALL_UMBRAL) {
-            qWarning() << "ha entrado en wall izquierda, max";
-            return RetVal(STATE::WALL, params.MAX_ADV_SPEED, -params.MAX_ROT_SPEED);
+        if (wall_point->distance2d >= params.MAX_WALL_DISTANCE) {
+            qWarning() << "angulo negativo, la distancia es Maxima";
+            return RetVal(STATE::WALL, params.MAX_ADV_SPEED*freno_fadv, -params.MAX_ROT_SPEED*freno_frot);
         }
     }
 
-    else if(wall_point->phi > 0.f  && wall_point->distance2d < params.DELTA_WALL) {
-            if(wall_point->distance2d < params.MIN_WALL_DISTANCE - params.DELTA_WALL) {
-                return RetVal(STATE::WALL, params.MAX_ADV_SPEED, -params.MAX_ROT_SPEED);
+    if (wall_point->phi > 0.f && wall_point->distance2d <= params.WALL_UMBRAL) {
+        qWarning() << wall_point->phi;
+        cont_dere++;
+            if(wall_point->distance2d < params.MIN_WALL_DISTANCE) {
+                qWarning() << "angulo positivo, la distancia es minima";
+                return RetVal(STATE::WALL, params.MAX_ADV_SPEED*freno_fadv, -params.MAX_ROT_SPEED*freno_frot);
             }
-            if(wall_point->distance2d > params.MAX_WALL_DISTANCE + params.DELTA_WALL && wall_point->distance2d < params.WALL_UMBRAL) {
-                return RetVal(STATE::WALL, params.MAX_ADV_SPEED, params.MAX_ROT_SPEED);
+
+            if (wall_point->distance2d > params.MAX_WALL_DISTANCE) {
+                qWarning() << "angulo positivo, la distancia es Maxima";
+                return RetVal(STATE::WALL, params.MAX_ADV_SPEED*freno_fadv, params.MAX_ROT_SPEED*freno_frot);
             }
     }
     else {
+        qWarning() << "ejecutando wall del else";
         return RetVal(STATE::FORWARD, params.MAX_ADV_SPEED, 0.f);
     }
 }
@@ -260,17 +283,37 @@ SpecificWorker::RetVal SpecificWorker::spiral(auto &points) {
 
     qWarning() << "ejecutando spiral";
 
+    static float velocidad_adv = 0.2;
+    static float velocidad_rotacion = params.MAX_ROT_SPEED;
+
     auto spiral_point = std::min_element(std::begin(points) , std::end(points), [](auto &a, auto &b)
         { return a.distance2d < b.distance2d; });
 
-    float velocidad_adv = 200;
-    float velocidad_rotacion = params.MAX_ROT_SPEED;
+    if(spiral_point->distance2d > params.MIN_WALL_DISTANCE) {
+        if(velocidad_adv < params.MAX_ADV_SPEED) {
+            if(velocidad_adv < 333) {
+                velocidad_adv+=1.3;
+            }
+            else if(velocidad_adv < 666) {
+                velocidad_adv+=0.8;
+            }
+            else if (velocidad_adv < 1000) {
+                velocidad_adv+=0.5;
+            }
+        }
 
-    if(spiral_point->distance2d > 500) {
+        if(velocidad_rotacion > 0.f)
+            velocidad_rotacion-=0.001;
+
+        else if (velocidad_adv>=params.MAX_ADV_SPEED && velocidad_rotacion >= params.MAX_ROT_SPEED) {
+            velocidad_adv = 0.f;
+            velocidad_rotacion = params.MAX_ROT_SPEED;
+        }
         return RetVal(STATE::SPIRAL, velocidad_adv, velocidad_rotacion);
     }
-
-    return RetVal(STATE::FORWARD, 0.f, 0.f);
+    velocidad_adv = 0;
+    velocidad_rotacion = 1;
+    return RetVal(STATE::WALL, params.MAX_ADV_SPEED, 0.f);
 }
 /**
 

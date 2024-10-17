@@ -64,11 +64,11 @@ class SpecificWorker : public GenericWorker
             std::string LIDAR_NAME_LOW = "bpearl";
             std::string LIDAR_NAME_HIGH = "helios";
             QRectF GRID_MAX_DIM{-5000, 2500, 10000, -5000};
-            float MIN_WALL_DISTANCE = 400;
-            float MAX_WALL_DISTANCE = 700;
-            float WALL_UMBRAL = 900;
+            float MIN_WALL_DISTANCE = 600;
+            float MAX_WALL_DISTANCE = 800;
+            float WALL_UMBRAL = 1000;
             float FACTOR_DECRECIMIENTO = 0.5;
-            float DELTA_WALL = 0;
+            float DELTA_WALL = 100;
 
         };
         Params params;
