@@ -292,7 +292,7 @@ SpecificWorker::RetVal SpecificWorker::spiral(auto &points) {
     if(spiral_point->distance2d > params.MIN_WALL_DISTANCE) {
         if(velocidad_adv < params.MAX_ADV_SPEED) {
             if(velocidad_adv < 333) {
-                velocidad_adv+=1.3;
+                velocidad_adv+=1.5;
             }
             else if(velocidad_adv < 666) {
                 velocidad_adv+=0.8;
@@ -302,8 +302,12 @@ SpecificWorker::RetVal SpecificWorker::spiral(auto &points) {
             }
         }
 
-        if(velocidad_rotacion > 0.f)
-            velocidad_rotacion-=0.001;
+        if(velocidad_rotacion > 0.f) {}
+            if(velocidad_rotacion > 0.5)
+                velocidad_rotacion-=0.001;
+            else if(velocidad_rotacion < 0.5)
+                velocidad_rotacion-=0.0005;
+
 
         else if (velocidad_adv>=params.MAX_ADV_SPEED && velocidad_rotacion >= params.MAX_ROT_SPEED) {
             velocidad_adv = 0.f;

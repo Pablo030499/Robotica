@@ -66,7 +66,7 @@ class SpecificWorker : public GenericWorker
             QRectF GRID_MAX_DIM{-5000, 2500, 10000, -5000};
             float MIN_WALL_DISTANCE = 600;
             float MAX_WALL_DISTANCE = 800;
-            float WALL_UMBRAL = 1000;
+            float WALL_UMBRAL = 1050;
             float FACTOR_DECRECIMIENTO = 0.5;
             float DELTA_WALL = 100;
 
