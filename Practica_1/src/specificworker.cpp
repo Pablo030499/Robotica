@@ -19,12 +19,11 @@
 #include <ranges>
 #include "specificworker.h"
 
-static int cont_izq = 0;
-static int cont_dere = 0;
-
 /**
 * \brief Default constructor
 */
+static int rigth_or_left = 0;
+
 SpecificWorker::SpecificWorker(TuplePrx tprx, bool startup_check) : GenericWorker(tprx)
 {
 	this->startup_check_flag = startup_check;
@@ -129,13 +128,14 @@ void SpecificWorker::compute()
  */
 SpecificWorker::RetVal SpecificWorker::forward(auto &points)
 {
-    auto wall_point = std::min_element(std::begin(points) , std::end(points), [](auto &a, auto &b)
-        { return a.distance2d < b.distance2d; });
     // check if the central part of the filtered_points vector has a minimum lower than the size of the robot
     auto offset_begin = closest_lidar_index_to_given_angle(points, -params.LIDAR_FRONT_SECTION);
     auto offset_end = closest_lidar_index_to_given_angle(points, params.LIDAR_FRONT_SECTION);
     if(offset_begin and offset_end)
     {
+        auto wall_point = std::min_element(std::begin(points) , std::end(points), [](auto &a, auto &b)
+        { return a.distance2d < b.distance2d; });
+
         qWarning() << "ejecutando forward";
         auto min_point = std::min_element(std::begin(points) + offset_begin.value(), std::begin(points) + offset_end.value(), [](auto &a, auto &b)
         { return a.distance2d < b.distance2d; });
@@ -143,12 +143,14 @@ SpecificWorker::RetVal SpecificWorker::forward(auto &points)
         if (min_point != points.end() and min_point->distance2d < params.STOP_THRESHOLD) {
             return RetVal(STATE::TURN, 0.f, 0.f);  // stop and change state if obstacle detected
         }
+
+        if(wall_point->distance2d > params.SPIRAL_UMBRAL) {
+            return RetVal(STATE::SPIRAL, params.MAX_ADV_SPEED, 0.f);
+        }
+
         if(wall_point->distance2d <= params.WALL_UMBRAL) {
             qWarning() << "if(min_point->distance2d < params.WALL_UMBRAL) -> WALL de FORWARD";
             return RetVal(STATE::WALL, params.MAX_ADV_SPEED, 0.f);
-        }
-        if(wall_point->distance2d > params.WALL_UMBRAL) {
-            return RetVal(STATE::SPIRAL, params.MAX_ADV_SPEED, 0.f);
         }
 
     }
@@ -157,7 +159,6 @@ SpecificWorker::RetVal SpecificWorker::forward(auto &points)
         qWarning() << "No valid readings. Stopping";
         return RetVal(STATE::FORWARD, 0.f, 0.f);
     }
-
 }
 
 /**
@@ -188,13 +189,14 @@ SpecificWorker::RetVal SpecificWorker::turn(auto &points)
         qWarning() << "No valid readings. Stopping";
         return RetVal(STATE::FORWARD, 0.f, 0.f);
     }
-    qWarning() << "Ejecutando el Turn";
+
     auto min_point = std::min_element(std::begin(points) + offset_begin.value(), std::begin(points) + offset_end.value(), [](auto &a, auto &b)
     { return a.distance2d < b.distance2d; });
     if (min_point != std::end(points) and min_point->distance2d > params.ADVANCE_THRESHOLD)
     {
         first_time = true;
-        return RetVal(STATE::FORWARD, params.MAX_ADV_SPEED, 0.f);
+        qWarning() << "forward de turn, first_time true";
+        return RetVal(STATE::FORWARD, 0.f, 0.f);
     }
 
     /// Keep doing my business
@@ -212,14 +214,16 @@ SpecificWorker::RetVal SpecificWorker::turn(auto &points)
             sign = min_point_all->phi > 0 ? -1 : 1;
         first_time = false;
     }
-    if(cont_izq > cont_dere) {
-        cont_izq = 0;
-        cont_dere = 0;
-        return RetVal(STATE::TURN, 0.f, 1 * params.MAX_ROT_SPEED);
+    if(first_time) {
+        if(rigth_or_left <= 0) {
+            sign = -1;
+        }
+        else {
+            sign = 1;
+        }
+        rigth_or_left = 0;
     }
-        cont_izq = 0;
-        cont_dere = 0;
-    return RetVal(STATE::TURN, 0.f, -1 * params.MAX_ROT_SPEED);
+    return RetVal(STATE::TURN, 0.f, sign * params.MAX_ROT_SPEED);
 }
 
 /**
@@ -227,7 +231,7 @@ SpecificWorker::RetVal SpecificWorker::turn(auto &points)
  **/
 SpecificWorker::RetVal SpecificWorker::wall(auto &points)
 {
-    //Calculamos la condicion de salida.
+        //Calculamos la condicion de salida.
     auto offset_begin = closest_lidar_index_to_given_angle(points, -params.LIDAR_FRONT_SECTION);
     auto offset_end = closest_lidar_index_to_given_angle(points, params.LIDAR_FRONT_SECTION);
 
@@ -235,48 +239,48 @@ SpecificWorker::RetVal SpecificWorker::wall(auto &points)
     { return a.distance2d < b.distance2d; });
 
     if(min_point != std::end(points) and min_point->distance2d < params.STOP_THRESHOLD) {
+        qWarning() << "Entrando al Turn de Wall";
         return RetVal(STATE::TURN, 0.f, 0.f);
     }
 
     //Continuamos con el wall.
-    auto wall_point = std::min_element(std::begin(points) + 0.6 , std::end(points) + 0.8, [](auto &a, auto &b)
+    auto wall_point = std::min_element(std::begin(points)+M_PI/2 , std::end(points)-M_PI/2, [](auto &a, auto &b)
         { return a.distance2d < b.distance2d; });
 
-
-    float error = std::abs(params.MIN_WALL_DISTANCE - wall_point->distance2d);
-    float freno_frot= (1/params.ROBOT_WIDTH)*error;
+    float error = std::abs(params.MIN_WALL_DISTANCE-wall_point->distance2d);
+    float freno_frot= std::clamp((1/params.ROBOT_WIDTH)*error, 0.f, params.MAX_ADV_SPEED);
     float freno_fadv = (1/params.ROBOT_WIDTH)*(freno_frot)+1;
 
     if(wall_point->phi < 0.f && wall_point->distance2d <= params.WALL_UMBRAL) {
-        qWarning() << wall_point->phi;
-        cont_izq++;
-        if(wall_point->distance2d < params.MIN_WALL_DISTANCE) {
-            qWarning() << "angulo negativo, la distancia es minima";
+        if(wall_point->distance2d <= params.MIN_WALL_DISTANCE) {
+            rigth_or_left++;
             return RetVal(STATE::WALL, params.MAX_ADV_SPEED*freno_fadv, params.MAX_ROT_SPEED*freno_frot);
         }
+
         if (wall_point->distance2d >= params.MAX_WALL_DISTANCE) {
-            qWarning() << "angulo negativo, la distancia es Maxima";
-            return RetVal(STATE::WALL, params.MAX_ADV_SPEED*freno_fadv, -params.MAX_ROT_SPEED*freno_frot);
+           return RetVal(STATE::WALL,  params.MAX_ADV_SPEED*freno_fadv, -params.MAX_ROT_SPEED*freno_frot);
         }
     }
 
-    if (wall_point->phi > 0.f && wall_point->distance2d <= params.WALL_UMBRAL) {
-        qWarning() << wall_point->phi;
-        cont_dere++;
-            if(wall_point->distance2d < params.MIN_WALL_DISTANCE) {
-                qWarning() << "angulo positivo, la distancia es minima";
-                return RetVal(STATE::WALL, params.MAX_ADV_SPEED*freno_fadv, -params.MAX_ROT_SPEED*freno_frot);
-            }
+    if (wall_point->phi >= 0.f && wall_point->distance2d <= params.WALL_UMBRAL) {
+        if(wall_point->distance2d <= params.MIN_WALL_DISTANCE) {
+            rigth_or_left--;
+            return RetVal(STATE::WALL, params.MAX_ADV_SPEED*freno_fadv, -params.MAX_ROT_SPEED*freno_frot);
+        }
+    if(wall_point->distance2d > params.SPIRAL_UMBRAL) {
+            return RetVal(STATE::SPIRAL, params.MAX_ADV_SPEED, 0.f);
+        }
 
-            if (wall_point->distance2d > params.MAX_WALL_DISTANCE) {
-                qWarning() << "angulo positivo, la distancia es Maxima";
-                return RetVal(STATE::WALL, params.MAX_ADV_SPEED*freno_fadv, params.MAX_ROT_SPEED*freno_frot);
-            }
+        if (wall_point->distance2d > params.MAX_WALL_DISTANCE) {
+            return RetVal(STATE::WALL, params.MAX_ADV_SPEED*freno_fadv, params.MAX_ROT_SPEED*freno_frot);
+        }
     }
-    else {
-        qWarning() << "ejecutando wall del else";
-        return RetVal(STATE::FORWARD, params.MAX_ADV_SPEED, 0.f);
+
+    if(wall_point->distance2d > params.SPIRAL_UMBRAL) {
+        return RetVal(STATE::SPIRAL, params.MAX_ADV_SPEED, 0.f);
     }
+
+    return RetVal(STATE::WALL, params.MAX_ADV_SPEED, 0.f);
 }
 
 SpecificWorker::RetVal SpecificWorker::spiral(auto &points) {
@@ -367,17 +371,16 @@ void SpecificWorker::draw_lidar(auto &filtered_points, QGraphicsScene *scene)
     {
         float right_line_length = filtered_points[res_right.value()].distance2d;
         float left_line_length = filtered_points[res_left.value()].distance2d;
-        float angle1 = params.LIDAR_FRONT_SECTION/2.f;
-        float angle2 = -angle1;
-        int x1_end = right_line_length * sin(angle1);
-        int y1_end = right_line_length * cos(angle1);
-        int x2_end = left_line_length * sin(angle2);
-        int y2_end = left_line_length * cos(angle2);
-
+        float angle1 = filtered_points[res_left.value()].phi;
+        float angle2 = filtered_points[res_right.value()].phi;
+        QLineF line_left{QPointF(0.f, 0.f),
+                         robot_draw->mapToScene(left_line_length * sin(angle1), left_line_length * cos(angle1))};
+        QLineF line_right{QPointF(0.f, 0.f),
+                          robot_draw->mapToScene(right_line_length * sin(angle2), right_line_length * cos(angle2))};
         QPen left_pen(Qt::blue, 10); // Blue color pen with thickness 3
         QPen right_pen(Qt::red, 10); // Blue color pen with thickness 3
-        auto line1 = scene->addLine(QLineF(robot_draw->mapToScene(0, 0), robot_draw->mapToScene(x1_end, y1_end)), left_pen);
-        auto line2 = scene->addLine(QLineF(robot_draw->mapToScene(0, 0), robot_draw->mapToScene(x2_end, y2_end)), right_pen);
+        auto line1 = scene->addLine(line_left, left_pen);
+        auto line2 = scene->addLine(line_right, right_pen);
         items.push_back(line1);
         items.push_back(line2);
     }
