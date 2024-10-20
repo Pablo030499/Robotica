@@ -212,6 +212,7 @@ SpecificWorker::RetVal SpecificWorker::turn(auto &points)
             if (sign == 0) sign = -1; else sign = 1;
         } else
             sign = min_point_all->phi > 0 ? -1 : 1;
+	    //first_time = false;
     }
     if(first_time) {
         if(rigth_or_left <= 0) {
@@ -221,7 +222,7 @@ SpecificWorker::RetVal SpecificWorker::turn(auto &points)
             sign = 1;
         }
         rigth_or_left = 0;
-	rigth_or_left = false;
+	first_time = false;
     }
     return RetVal(STATE::TURN, 0.f, sign * params.MAX_ROT_SPEED);
 }
