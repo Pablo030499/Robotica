@@ -212,7 +212,11 @@ SpecificWorker::RetVal SpecificWorker::turn(auto &points)
             if (sign == 0) sign = -1; else sign = 1;
         } else
             sign = min_point_all->phi > 0 ? -1 : 1;
+<<<<<<< HEAD
         //first_time = false;
+=======
+	    //first_time = false;
+>>>>>>> bf5ef494972506d960f49855705234a8b89deb46
     }
     if(first_time) {
         if(rigth_or_left <= 0) {
@@ -223,6 +227,7 @@ SpecificWorker::RetVal SpecificWorker::turn(auto &points)
         }
         first_time = false;
         rigth_or_left = 0;
+	first_time = false;
     }
     return RetVal(STATE::TURN, 0.f, sign * params.MAX_ROT_SPEED);
 }
@@ -257,8 +262,13 @@ SpecificWorker::RetVal SpecificWorker::wall(auto &points)
     float freno_fadv = std::clamp(-1.f/(params.ROBOT_WIDTH/2.f) * std::fabs(error) + 1.f, 0.f, 1.f);
 
     if(wall_point->phi < 0.f && wall_point->distance2d <= params.WALL_UMBRAL) {
+<<<<<<< HEAD
         rigth_or_left++;
         if(wall_point->distance2d <= params.MIN_WALL_DISTANCE) {
+=======
+	rigth_or_left++;
+        if(wall_point->distance2d <= params.MIN_WALL_DISTANCE) {   
+>>>>>>> bf5ef494972506d960f49855705234a8b89deb46
             return RetVal(STATE::WALL, params.MAX_ADV_SPEED*freno_fadv, params.MAX_ROT_SPEED*freno_frot);
         }
 
@@ -268,8 +278,14 @@ SpecificWorker::RetVal SpecificWorker::wall(auto &points)
     }
 
     if (wall_point->phi >= 0.f && wall_point->distance2d <= params.WALL_UMBRAL) {
+<<<<<<< HEAD
         rigth_or_left--;
         if(wall_point->distance2d <= params.MIN_WALL_DISTANCE) {
+=======
+	rigth_or_left--;
+        if(wall_point->distance2d <= params.MIN_WALL_DISTANCE) {
+            
+>>>>>>> bf5ef494972506d960f49855705234a8b89deb46
             return RetVal(STATE::WALL, params.MAX_ADV_SPEED*freno_fadv, -params.MAX_ROT_SPEED*freno_frot);
         }
 
