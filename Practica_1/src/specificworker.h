@@ -69,6 +69,8 @@ class SpecificWorker : public GenericWorker
             float SPIRAL_UMBRAL = 1600;
             float WALL_UMBRAL = 1100;
             float DELTA_WALL = 100;
+            float LIDAR_RIGHT_SIDE_SECTION = M_PI/3; // rads, 90 degrees
+            float LIDAR_LEFT_SIDE_SECTION = -M_PI/3; // rads, 90 degrees
 
         };
         Params params;
@@ -92,6 +94,9 @@ class SpecificWorker : public GenericWorker
 
         // random number generator
         std::random_device rd;
+
+        enum class HANDNESS {LEFT, RIGHT};
+        HANDNESS handness = HANDNESS::RIGHT;
 };
 
 #endif

@@ -212,7 +212,7 @@ SpecificWorker::RetVal SpecificWorker::turn(auto &points)
             if (sign == 0) sign = -1; else sign = 1;
         } else
             sign = min_point_all->phi > 0 ? -1 : 1;
-        first_time = false;
+        //first_time = false;
     }
     if(first_time) {
         if(rigth_or_left <= 0) {
@@ -221,6 +221,7 @@ SpecificWorker::RetVal SpecificWorker::turn(auto &points)
         else {
             sign = 1;
         }
+        first_time = false;
         rigth_or_left = 0;
     }
     return RetVal(STATE::TURN, 0.f, sign * params.MAX_ROT_SPEED);
@@ -228,7 +229,6 @@ SpecificWorker::RetVal SpecificWorker::turn(auto &points)
 
 /**
  *
- **/
 SpecificWorker::RetVal SpecificWorker::wall(auto &points)
 {
         //Calculamos la condicion de salida.
@@ -243,17 +243,22 @@ SpecificWorker::RetVal SpecificWorker::wall(auto &points)
         return RetVal(STATE::TURN, 0.f, 0.f);
     }
 
-    //Continuamos con el wall.
-    auto wall_point = std::min_element(std::begin(points)+M_PI/2 , std::end(points)-M_PI/2, [](auto &a, auto &b)
-        { return a.distance2d < b.distance2d; });
+    auto wall_offset_begin = closest_lidar_index_to_given_angle(points, M_PI/3);
+    auto wall_offset_end = closest_lidar_index_to_given_angle(points, -M_PI/3);
 
-    float error = std::abs(params.MIN_WALL_DISTANCE-wall_point->distance2d);
-    float freno_frot= std::clamp((1/params.ROBOT_WIDTH)*error, 0.f, params.MAX_ADV_SPEED);
-    float freno_fadv = (1/params.ROBOT_WIDTH)*(freno_frot)+1;
+    //Continuamos con el wall.
+
+    auto rigth_wall_point = points[wall_offset_begin.value()];
+    auto left_wall_point = points[wall_offset_end.value()];
+
+
+    float error = params.MIN_WALL_DISTANCE-wall_point->distance2d;
+    float freno_frot= std::clamp(1.f/(params.ROBOT_WIDTH/3.f) * std::fabs(error), 0.f, 1.f);
+    float freno_fadv = std::clamp(-1.f/(params.ROBOT_WIDTH/2.f) * std::fabs(error) + 1.f, 0.f, 1.f);
 
     if(wall_point->phi < 0.f && wall_point->distance2d <= params.WALL_UMBRAL) {
+        rigth_or_left++;
         if(wall_point->distance2d <= params.MIN_WALL_DISTANCE) {
-            rigth_or_left++;
             return RetVal(STATE::WALL, params.MAX_ADV_SPEED*freno_fadv, params.MAX_ROT_SPEED*freno_frot);
         }
 
@@ -263,12 +268,9 @@ SpecificWorker::RetVal SpecificWorker::wall(auto &points)
     }
 
     if (wall_point->phi >= 0.f && wall_point->distance2d <= params.WALL_UMBRAL) {
+        rigth_or_left--;
         if(wall_point->distance2d <= params.MIN_WALL_DISTANCE) {
-            rigth_or_left--;
             return RetVal(STATE::WALL, params.MAX_ADV_SPEED*freno_fadv, -params.MAX_ROT_SPEED*freno_frot);
-        }
-    if(wall_point->distance2d > params.SPIRAL_UMBRAL) {
-            return RetVal(STATE::SPIRAL, params.MAX_ADV_SPEED, 0.f);
         }
 
         if (wall_point->distance2d > params.MAX_WALL_DISTANCE) {
@@ -282,12 +284,67 @@ SpecificWorker::RetVal SpecificWorker::wall(auto &points)
 
     return RetVal(STATE::WALL, params.MAX_ADV_SPEED, 0.f);
 }
+**/
+
+SpecificWorker::RetVal SpecificWorker::wall(auto &filtered_points)
+{
+    static bool first_time = true;
+
+    // check if about to crash
+    auto offset_begin = closest_lidar_index_to_given_angle(filtered_points, -params.LIDAR_FRONT_SECTION);
+    auto offset_end = closest_lidar_index_to_given_angle(filtered_points, params.LIDAR_FRONT_SECTION);
+    auto min_point = std::min_element(std::begin(filtered_points) + offset_begin.value(), std::begin(filtered_points) + offset_end.value(), [](auto &a, auto &b)
+    { return a.distance2d < b.distance2d; });
+    if(min_point->distance2d < params.STOP_THRESHOLD)
+    {
+        first_time = true;
+        return RetVal(STATE::TURN, 0.f, 0.f);  // stop and change state if obstacle detected
+    }
+
+    // get lidar readings in the sides of the robot
+    RoboCompLidar3D::TPoint min_obj;
+    auto res_right = closest_lidar_index_to_given_angle(filtered_points, params.LIDAR_RIGHT_SIDE_SECTION);
+    auto res_left = closest_lidar_index_to_given_angle(filtered_points, params.LIDAR_LEFT_SIDE_SECTION);
+    if (not res_right or not res_left)   // abandon the ship
+    {
+        qWarning() << "No valid lateral readings" << QString::fromStdString(res_right.error()) << QString::fromStdString(res_left.error());
+        return RetVal(STATE::WALL, 0.f, 0.f);
+    }
+    auto right_point = filtered_points[res_right.value()];
+    auto left_point = filtered_points[res_left.value()];
+    if(first_time)    // compare both to get the one with minimum distance and keep it until next TURN
+    {
+        handness = (right_point.distance2d < left_point.distance2d) ? HANDNESS::RIGHT : HANDNESS::LEFT;
+        first_time = false;
+    }
+    min_obj = handness == HANDNESS::RIGHT ? right_point : left_point;
+
+    // compute the distance to the virtual line that has to be followed. Positive if the robot is too far from the wall, negative otherwise
+    auto error = min_obj.distance2d - params.MIN_WALL_DISTANCE;
+
+    // compute breaks
+    auto adv_brake = std::clamp(-1.f/(params.ROBOT_WIDTH/2.f) * std::fabs(error) + 1.f, 0.f, 1.f);
+    auto rot_brake = std::clamp(1.f/(params.ROBOT_WIDTH/3.f) * std::fabs(error), 0.f, 1.f);
+
+    // check the left/right hand side and the distance to the wall conditions
+    if(min_obj.phi >= 0 and error >= 0)   // right hand side and too far from the wall: turn left
+        return RetVal(STATE::WALL, params.MAX_ADV_SPEED * adv_brake, params.MAX_ROT_SPEED * rot_brake);
+    if(min_obj.phi >= 0 and error < 0)   // right hand side and too close to the wall: turn right
+        return RetVal(STATE::WALL, params.MAX_ADV_SPEED * adv_brake, -params.MAX_ROT_SPEED * rot_brake);
+    if(min_obj.phi < 0 and error >= 0)   // left hand side and too far from the wall: turn left
+        return RetVal(STATE::WALL, params.MAX_ADV_SPEED * adv_brake, -params.MAX_ROT_SPEED * rot_brake);
+    if(min_obj.phi < 0 and error < 0)   // left hand side and too close to the wall: turn right
+        return RetVal(STATE::WALL, params.MAX_ADV_SPEED * adv_brake, params.MAX_ROT_SPEED * rot_brake);
+
+    qWarning() << "We should not reach this point. Stopping";
+    return RetVal (STATE::WALL, 0.f, 0.f);
+}
 
 SpecificWorker::RetVal SpecificWorker::spiral(auto &points) {
 
     qWarning() << "ejecutando spiral";
 
-    static float velocidad_adv = 0.2;
+    static float velocidad_adv = 100.f;
     static float velocidad_rotacion = params.MAX_ROT_SPEED;
 
     auto spiral_point = std::min_element(std::begin(points) , std::end(points), [](auto &a, auto &b)
@@ -295,30 +352,23 @@ SpecificWorker::RetVal SpecificWorker::spiral(auto &points) {
 
     if(spiral_point->distance2d > params.MIN_WALL_DISTANCE) {
         if(velocidad_adv < params.MAX_ADV_SPEED) {
-            if(velocidad_adv < 333) {
-                velocidad_adv+=1.5;
-            }
-            else if(velocidad_adv < 666) {
-                velocidad_adv+=0.8;
-            }
-            else if (velocidad_adv < 1000) {
-                velocidad_adv+=0.5;
-            }
+            velocidad_adv+=1;
         }
 
-        if(velocidad_rotacion > 0.f) {}
-            if(velocidad_rotacion > 0.5)
-                velocidad_rotacion-=0.001;
-            else if(velocidad_rotacion < 0.5)
-                velocidad_rotacion-=0.0005;
+        if(velocidad_rotacion > 0.5)
+            velocidad_rotacion-=0.001;
 
+        else if(velocidad_rotacion < 0.5)
+            velocidad_rotacion-=0.0005;
 
-        else if (velocidad_adv>=params.MAX_ADV_SPEED && velocidad_rotacion >= params.MAX_ROT_SPEED) {
+        else if (velocidad_adv>=params.MAX_ADV_SPEED && velocidad_rotacion <= params.MAX_ROT_SPEED) {
             velocidad_adv = 0.f;
             velocidad_rotacion = params.MAX_ROT_SPEED;
         }
+
         return RetVal(STATE::SPIRAL, velocidad_adv, velocidad_rotacion);
     }
+    
     velocidad_adv = 0;
     velocidad_rotacion = 1;
     return RetVal(STATE::WALL, params.MAX_ADV_SPEED, 0.f);
