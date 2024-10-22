@@ -23,6 +23,7 @@
 * \brief Default constructor
 */
 static int rigth_or_left = 0;
+static bool randomWay = false;
 
 SpecificWorker::SpecificWorker(TuplePrx tprx, bool startup_check) : GenericWorker(tprx)
 {
@@ -128,6 +129,7 @@ void SpecificWorker::compute()
  */
 SpecificWorker::RetVal SpecificWorker::forward(auto &points)
 {
+
     // check if the central part of the filtered_points vector has a minimum lower than the size of the robot
     auto offset_begin = closest_lidar_index_to_given_angle(points, -params.LIDAR_FRONT_SECTION);
     auto offset_end = closest_lidar_index_to_given_angle(points, params.LIDAR_FRONT_SECTION);
@@ -142,17 +144,21 @@ SpecificWorker::RetVal SpecificWorker::forward(auto &points)
 
         if (min_point != points.end() and min_point->distance2d < params.STOP_THRESHOLD) {
             return RetVal(STATE::TURN, 0.f, 0.f);  // stop and change state if obstacle detected
+
         }
 
         if(wall_point->distance2d > params.SPIRAL_UMBRAL) {
             return RetVal(STATE::SPIRAL, params.MAX_ADV_SPEED, 0.f);
         }
 
-        if(wall_point->distance2d <= params.WALL_UMBRAL) {
+        if(wall_point->distance2d <= params.WALL_UMBRAL and !randomWay) {
             qWarning() << "if(min_point->distance2d < params.WALL_UMBRAL) -> WALL de FORWARD";
             return RetVal(STATE::WALL, params.MAX_ADV_SPEED, 0.f);
         }
 
+        if (min_point != points.end()) {
+            return RetVal(STATE::FORWARD, params.MAX_ADV_SPEED, 0.f);  // stop and change state if obstacle detected
+        }
     }
     else // no valid readings
     {
@@ -173,11 +179,19 @@ SpecificWorker::RetVal SpecificWorker::forward(auto &points)
  */
 SpecificWorker::RetVal SpecificWorker::turn(auto &points)
 {
+
+
     // Instantiate the random number generator and distribution
     static std::mt19937 gen(rd());
     static std::uniform_int_distribution<int> dist(0, 1);
     static bool first_time = true;
     static int sign = 1;
+
+    static std::uniform_int_distribution<int> n_vueltas(15, 35);
+    static std::uniform_int_distribution<int> n_turns(5, 8);
+    static int vueltas = 10;
+    static int turns = n_turns(gen);
+    qWarning() << "valor inicial turns" << turns << "valor random " << randomWay;
 
     /// check if the narrow central part of the filtered_points vector is free to go. If so stop turning and change state to FORWARD
     auto offset_begin = closest_lidar_index_to_given_angle(points, -params.LIDAR_FRONT_SECTION);
@@ -194,10 +208,25 @@ SpecificWorker::RetVal SpecificWorker::turn(auto &points)
     { return a.distance2d < b.distance2d; });
     if (min_point != std::end(points) and min_point->distance2d > params.ADVANCE_THRESHOLD)
     {
-        first_time = true;
+
         qWarning() << "forward de turn, first_time true";
-        return RetVal(STATE::FORWARD, 0.f, 0.f);
+
+        if (turns <= 0) {
+            randomWay = true;
+        }
+
+        if(!randomWay || vueltas <= 0) {
+            turns--;
+            first_time = true;
+            vueltas = n_vueltas(gen);
+            qWarning() << "CONTADOR AUMENTADO " << turns << "valor random " << randomWay;
+            return RetVal(STATE::FORWARD, 0.f, 0.f);
+        }
+
     }
+    auto min_angle = std::min_element(std::begin(points) + offset_begin.value(), std::begin(points) + offset_end.value(), [](auto &a, auto &b)
+        { return a.distance2d < b.distance2d; });
+    auto offset_random = closest_lidar_index_to_given_angle(points, 2*M_PI/3);
 
     /// Keep doing my business
     // get the min_element for all points range anc check if angle is greater, less or closer to zero to choose the direction
@@ -212,20 +241,13 @@ SpecificWorker::RetVal SpecificWorker::turn(auto &points)
             if (sign == 0) sign = -1; else sign = 1;
         } else
             sign = min_point_all->phi > 0 ? -1 : 1;
-        //first_time = false;
+        first_time = false;
 
         }
-        if(first_time) {
-            if(rigth_or_left <= 0) {
-                sign = -1;
-            }
-            else {
-                sign = 1;
-            }
-        first_time = false;
-        rigth_or_left = 0;
-        }
+    qWarning() << "Ejecutando turn";
+    vueltas--;
     return RetVal(STATE::TURN, 0.f, sign * params.MAX_ROT_SPEED);
+
 }
 
 /**
@@ -295,6 +317,12 @@ SpecificWorker::RetVal SpecificWorker::wall(auto &filtered_points)
 {
     static bool first_time = true;
 
+    static std::mt19937 gen(rd());
+    static std::uniform_int_distribution<int> dist(0, 50);
+
+    int random = dist(gen);
+
+
     // check if about to crash
     auto offset_begin = closest_lidar_index_to_given_angle(filtered_points, -params.LIDAR_FRONT_SECTION);
     auto offset_end = closest_lidar_index_to_given_angle(filtered_points, params.LIDAR_FRONT_SECTION);
@@ -349,7 +377,7 @@ SpecificWorker::RetVal SpecificWorker::spiral(auto &points) {
 
     qWarning() << "ejecutando spiral";
 
-    static float velocidad_adv = 100.f;
+    static float velocidad_adv = 150.f;
     static float velocidad_rotacion = params.MAX_ROT_SPEED;
 
     auto spiral_point = std::min_element(std::begin(points) , std::end(points), [](auto &a, auto &b)
@@ -357,7 +385,7 @@ SpecificWorker::RetVal SpecificWorker::spiral(auto &points) {
 
     if(spiral_point->distance2d > params.MIN_WALL_DISTANCE) {
         if(velocidad_adv < params.MAX_ADV_SPEED) {
-            velocidad_adv+=1;
+            velocidad_adv+=1.f;
         }
 
         if(velocidad_rotacion > 0.5)
@@ -366,7 +394,7 @@ SpecificWorker::RetVal SpecificWorker::spiral(auto &points) {
         else if(velocidad_rotacion < 0.5)
             velocidad_rotacion-=0.0005;
 
-        else if (velocidad_adv>=params.MAX_ADV_SPEED && velocidad_rotacion <= params.MAX_ROT_SPEED) {
+        if (velocidad_adv>=params.MAX_ADV_SPEED && velocidad_rotacion <= params.MAX_ROT_SPEED) {
             velocidad_adv = 0.f;
             velocidad_rotacion = params.MAX_ROT_SPEED;
         }
@@ -376,7 +404,7 @@ SpecificWorker::RetVal SpecificWorker::spiral(auto &points) {
     
     velocidad_adv = 0;
     velocidad_rotacion = 1;
-    return RetVal(STATE::WALL, params.MAX_ADV_SPEED, 0.f);
+    return RetVal(STATE::FORWARD, params.MAX_ADV_SPEED, 0.f);
 }
 /**
 
