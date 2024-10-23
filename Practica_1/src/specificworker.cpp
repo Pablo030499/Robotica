@@ -349,14 +349,14 @@ SpecificWorker::RetVal SpecificWorker::spiral(auto &points) {
 
     if(spiral_point->distance2d > params.MIN_WALL_DISTANCE) {
         if(velocidad_adv < params.MAX_ADV_SPEED) {
-            velocidad_adv+=1.f;
+            velocidad_adv+=2.f;
         }
 
         if(velocidad_rotacion > 0.5)
             velocidad_rotacion-=0.001;
 
         else if(velocidad_rotacion < 0.5)
-            velocidad_rotacion-=0.0005;
+            velocidad_rotacion-=0.001;
 
         if (velocidad_adv>=params.MAX_ADV_SPEED && velocidad_rotacion <= params.MAX_ROT_SPEED) {
             velocidad_adv = 0.f;
