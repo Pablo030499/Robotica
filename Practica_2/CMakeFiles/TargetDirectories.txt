@@ -1,0 +1,16 @@
+/home/usuario/robocomp/components/G10_Robotica/Practica_2/CMakeFiles/edit_cache.dir
+/home/usuario/robocomp/components/G10_Robotica/Practica_2/CMakeFiles/rebuild_cache.dir
+/home/usuario/robocomp/components/G10_Robotica/Practica_2/CMakeFiles/list_install_components.dir
+/home/usuario/robocomp/components/G10_Robotica/Practica_2/CMakeFiles/install.dir
+/home/usuario/robocomp/components/G10_Robotica/Practica_2/CMakeFiles/install/local.dir
+/home/usuario/robocomp/components/G10_Robotica/Practica_2/CMakeFiles/install/strip.dir
+/home/usuario/robocomp/components/G10_Robotica/Practica_2/src/CMakeFiles/ICES__home_usuario_robocomp_components_G10_Robotica_Practica_2_src.dir
+/home/usuario/robocomp/components/G10_Robotica/Practica_2/src/CMakeFiles/person_tracker.dir
+/home/usuario/robocomp/components/G10_Robotica/Practica_2/src/CMakeFiles/edit_cache.dir
+/home/usuario/robocomp/components/G10_Robotica/Practica_2/src/CMakeFiles/rebuild_cache.dir
+/home/usuario/robocomp/components/G10_Robotica/Practica_2/src/CMakeFiles/list_install_components.dir
+/home/usuario/robocomp/components/G10_Robotica/Practica_2/src/CMakeFiles/install.dir
+/home/usuario/robocomp/components/G10_Robotica/Practica_2/src/CMakeFiles/install/local.dir
+/home/usuario/robocomp/components/G10_Robotica/Practica_2/src/CMakeFiles/install/strip.dir
+/home/usuario/robocomp/components/G10_Robotica/Practica_2/src/CMakeFiles/person_tracker_autogen_timestamp_deps.dir
+/home/usuario/robocomp/components/G10_Robotica/Practica_2/src/CMakeFiles/person_tracker_autogen.dir
