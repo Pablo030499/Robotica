@@ -68,6 +68,7 @@ class SpecificWorker : public GenericWorker
             float LIDAR_FRONT_SECTION = 0.2; // rads, aprox 12 degrees
             // person
             float PERSON_MIN_DIST = 800; // mm
+            float PERSON_MAX_DIST = 1000;
 
             std::string LIDAR_NAME_LOW = "bpearl";
             std::string LIDAR_NAME_HIGH = "helios";

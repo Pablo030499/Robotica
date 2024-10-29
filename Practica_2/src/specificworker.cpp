@@ -93,7 +93,7 @@ void SpecificWorker::compute()
     // get person and draw on viewer
     auto person = find_person_in_data(data.objects);
     if(not person.has_value())
-    { qWarning() << __FUNCTION__ << QString::fromStdString(person.error()); return; }   // STOP THE ROBOT
+    { qWarning() << __FUNCTION__ << QString::fromStdString(person.error()); omnirobot_proxy->setSpeedBase(0.f, 0.f, 0.f); return; }   // STOP THE ROBOT
 
     // call state machine to track person
     const auto &[adv, rot] = state_machine(person.value());
@@ -199,15 +199,15 @@ SpecificWorker::RetVal SpecificWorker::track(const RoboCompVisualElementsPub::TO
 {
     //qDebug() << __FUNCTION__;
     // variance of the gaussian function is set by the user giving a point xset where the function must be yset, and solving for s
-//    auto gaussian_break = [](float x) -> float
-//    {
-//        // gaussian function where x is the rotation speed -1 to 1. Returns 1 for x = 0 and 0.4 for x = 0.5
-//        const double xset = 0.5;
-//        const double yset = 0.6;
-          // compute the variance s so the function is yset for x = xset
-          // float s =
-//        return (float)exp(-x*x/s);
-//    };
+   auto gaussian_break = [](float x) -> float
+   {
+       // gaussian function where x is the rotation speed -1 to 1. Returns 1 for x = 0 and 0.4 for x = 0.5
+       const double xset = 0.5;
+       const double yset = 0.75;
+          //compute the variance s so the function is yset for x = xset
+        float s = pow(-xset, 2)/log(yset);
+       return (float)exp(-x*x/s);
+   };
 
     auto distance = std::hypot(std::stof(person.attributes.at("x_pos")), std::stof(person.attributes.at("y_pos")));
     lcdNumber_dist_to_person->display(distance);
@@ -217,8 +217,10 @@ SpecificWorker::RetVal SpecificWorker::track(const RoboCompVisualElementsPub::TO
     {   qWarning() << __FUNCTION__ << "Distance to person lower than threshold"; return RetVal(STATE::WAIT, 0.f, 0.f);}
 
     /// TRACK   PUT YOUR CODE HERE
-
-    return RetVal(STATE::TRACK, 0, 0);
+    float rot_speed = std::atan2(std::stof(person.attributes.at("x_pos")),std::stof(person.attributes.at("y_pos")));
+    float speed =
+    qWarning() << "Velocidad de avance: ";
+    return RetVal(STATE::TRACK, 300.f, rot_speed);
 }
 //
 SpecificWorker::RetVal SpecificWorker::wait(const RoboCompVisualElementsPub::TObject &person)
