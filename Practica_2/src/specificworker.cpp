@@ -19,6 +19,7 @@
 #include "specificworker.h"
 #include <cppitertools/enumerate.hpp>
 #include <cppitertools/range.hpp>
+#include <chrono>
 
 /**
 * \brief Default constructor
@@ -92,6 +93,7 @@ void SpecificWorker::compute()
 
     // get person and draw on viewer
     auto person = find_person_in_data(data.objects);
+
     if(not person.has_value())
     { qWarning() << __FUNCTION__ << QString::fromStdString(person.error()); omnirobot_proxy->setSpeedBase(0.f, 0.f, 0.f); return; }   // STOP THE ROBOT
 
@@ -203,9 +205,9 @@ SpecificWorker::RetVal SpecificWorker::track(const RoboCompVisualElementsPub::TO
    {
        // gaussian function where x is the rotation speed -1 to 1. Returns 1 for x = 0 and 0.4 for x = 0.5
        const double xset = 0.5;
-       const double yset = 0.75;
+       const double yset = 0.7;
           //compute the variance s so the function is yset for x = xset
-        float s = pow(-xset, 2)/log(yset);
+        float s = (-xset*xset)/log(yset);
        return (float)exp(-x*x/s);
    };
 
@@ -218,9 +220,9 @@ SpecificWorker::RetVal SpecificWorker::track(const RoboCompVisualElementsPub::TO
 
     /// TRACK   PUT YOUR CODE HERE
     float rot_speed = std::atan2(std::stof(person.attributes.at("x_pos")),std::stof(person.attributes.at("y_pos")));
-    float speed =
-    qWarning() << "Velocidad de avance: ";
-    return RetVal(STATE::TRACK, 300.f, rot_speed);
+    float adv_brake  = std::clamp(distance*(1/params.STOP_THRESHOLD),0.f,1.f);
+    qWarning() << "Velocidad de avance: " << gaussian_break(rot_speed) << " Velocidad de rotacion: "<< rot_speed;
+    return RetVal(STATE::TRACK, params.MAX_ADV_SPEED*gaussian_break(rot_speed)*adv_brake, rot_speed);
 }
 //
 SpecificWorker::RetVal SpecificWorker::wait(const RoboCompVisualElementsPub::TObject &person)
