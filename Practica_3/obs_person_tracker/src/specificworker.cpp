@@ -84,11 +84,11 @@ void SpecificWorker::compute()
     draw_lidar(helios_points, &viewer->scene);
 
     //  Detect long, straight lines in the scenario processing the set of LiDAR points
-
+    std::vector<QLineF> lines = detect_wall_lines(helios_points, &viewer->scene);
 
 
     /// remove wall lines
-    // auto new_data = remove_wall_points(helios_points, bpearl_points);
+    auto new_data = remove_wall_points(lines, bpearl_points);
     // auto &[filtered_points, walls_polys] = new_data;
     //
     // /// get walls as polygons
@@ -140,6 +140,26 @@ void SpecificWorker::compute()
 //////////////////////////////////////////////////////////////////
 /// YOUR CODE HERE
 //////////////////////////////////////////////////////////////////
+
+std::vector<QLineF> SpecificWorker::detect_wall_lines(const auto &helios, QGraphicsScene *scene) {
+    std::vector<QLineF> lines;
+    QPen pen(Qt::yellow);
+    pen.setWidth(2);
+
+    const auto &[lineas, _, __, ___] = room_detector.compute_features(helios, scene);
+    for(const auto &line : lineas){
+        lines.emplace_back(line.second);
+        auto *line_item = new QGraphicsLineItem(line.second);
+        line_item->setPen(pen);
+        scene->addItem(line_item);
+    }
+    return lines;
+}
+
+/**
+ * 
+ * @return 
+ */
 std::vector<Eigen::Vector2f> SpecificWorker::read_lidar_bpearl()
 {
     try
@@ -157,6 +177,7 @@ std::vector<Eigen::Vector2f> SpecificWorker::read_lidar_bpearl()
     catch(const Ice::Exception &e){std::cout << e << std::endl;}
     return {};
 }
+
 std::vector<Eigen::Vector2f> SpecificWorker::read_lidar_helios()
 {
     try
@@ -178,6 +199,7 @@ std::vector<Eigen::Vector2f> SpecificWorker::read_lidar_helios()
     catch(const Ice::Exception &e){std::cout << e << std::endl;}
     return {};
 }
+
 void SpecificWorker::update_room_model(const auto &points, QGraphicsScene *scene)
 {
     // transform points to a std::vector<Eigen::Vector2f>
@@ -211,16 +233,35 @@ void SpecificWorker::update_room_model(const auto &points, QGraphicsScene *scene
  * param points The set of points to be filtered.
  * return A vector of polygons representing the filtered points.
  */
-std::tuple<std::vector<Eigen::Vector2f>, std::vector<QLineF>>
-        SpecificWorker::remove_wall_points(const auto &helios, const auto &bpearl)
-{
+std::vector<Eigen::Vector2f>
+    SpecificWorker::remove_wall_points(const auto &lines, const auto &bpearl) {
+
+    double static distancia_umbral = 0.2;
     std::vector<Eigen::Vector2f> points_inside;
-    std::vector<QLineF> ls;
+
+    auto distance = 0.f;
+
+    QPen pen(Qt::green);
+    pen.setWidth(2);
 
     // your code here
-    points_inside = std::transform(helios, bpearl);
-    return std::make_tuple(points_inside, ls);
+        for(const auto &a: bpearl) {
+            bool is_near = false;
+            for(const auto &line : lines) {
+                auto l = Eigen::ParametrizedLine<float, 2>::Through(Eigen::Vector2f{line.p1().x(), line.p1().y()},
+                                                                                        Eigen::Vector2f{line.p2().x(), line.p2().y()});
+                if(l.distance(a) < params.ROBOT_WIDTH/2){
+                    is_near = true;
+                    break;
+                }
+                if(not is_near) {
+                    points_inside.emplace_back(a);
+                }
+            }
+        }
+    return points_inside;
 }
+
 std::expected<RoboCompVisualElementsPub::TObject, std::string>
 SpecificWorker::find_person_in_data(const std::vector<RoboCompVisualElementsPub::TObject> &objects)
 {

@@ -38,7 +38,6 @@
 #include <locale>
 #include <Eigen/Geometry>  // For ParametrizedLine
 
-
 class SpecificWorker : public GenericWorker
 {
     Q_OBJECT
@@ -51,6 +50,7 @@ class SpecificWorker : public GenericWorker
     public slots:
         void initialize();
         void compute();
+
         void emergency();
         void restore();
         int startup_check();
@@ -124,10 +124,11 @@ class SpecificWorker : public GenericWorker
 
         // room
         rc::Room_Detector room_detector;
+        std::vector<QLineF> detect_wall_lines(const auto &helios, QGraphicsScene *);
         void update_room_model(const auto &points, QGraphicsScene *scene);
         rc::Room room_model;
         QPolygonF shrink_polygon(const QPolygonF &polygon, qreal amount);
-        std::tuple<std::vector<Eigen::Vector2f>, std::vector<QLineF>> remove_wall_points(const auto &helios, const auto &bpearl);
+        vector<Eigen::Vector2f> remove_wall_points(const auto &helios, const auto &bpearl);
         std::vector<QPolygonF> get_walls_as_polygons(const std::vector<QLineF> &lines, float robot_width);
 
 
