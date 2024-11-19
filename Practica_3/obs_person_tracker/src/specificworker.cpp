@@ -125,8 +125,7 @@ void SpecificWorker::compute()
     obstacles.insert(obstacles.end(), wall_obs.begin(), wall_obs.end());
 
     /// compute an obstacle free path
-    if(tp_person)
-    {
+    if(tp_person) {
         Eigen::Vector2f goal{std::stof(tp_person.value().attributes.at("x_pos")), std::stof(tp_person.value().attributes.at("y_pos"))};
         std::vector<Eigen::Vector2f> path = rc::VisibilityGraph().generate_path(Eigen::Vector2f::Zero(),
                                                                                 goal,
@@ -134,28 +133,27 @@ void SpecificWorker::compute()
                                                                                 params.ROBOT_WIDTH / 2,
                                                                                 &viewer->scene);
         draw_path_to_person(path, &viewer->scene);
-    }
 
-    // call state machine to track person
-    const auto &[adv, rot] = state_machine(tp_person);
-
-    // plot on UI
-    if(tp_person)
-    {
+        // call state machine to track person
+        const auto &[adv, rot] = state_machine(tp_person, path);
+        // plot on UI
         float d = std::hypot(std::stof(tp_person.value().attributes.at("x_pos")),
                                  std::stof(tp_person.value().attributes.at("y_pos")));
         plot_distance(running_average(d) - params.PERSON_MIN_DIST);
         lcdNumber_dist_to_person->display(d);
         lcdNumber_angle_to_person->display(atan2(std::stof(tp_person.value().attributes.at("x_pos")),
                                                  std::stof(tp_person.value().attributes.at("y_pos"))));
+
+        lcdNumber_adv->display(adv);
+        lcdNumber_rot->display(rot);
+
+        // move the robot
+        try{ omnirobot_proxy->setSpeedBase(0.f, adv, rot); }
+        catch(const Ice::Exception &e){std::cout << e << std::endl;}
     }
-    lcdNumber_adv->display(adv);
-    lcdNumber_rot ->display(rot);
-
-    // move the robot
-    try{ omnirobot_proxy->setSpeedBase(0.f, adv, rot); }
-    catch(const Ice::Exception &e){std::cout << e << std::endl;}
-
+    else {
+        omnirobot_proxy->setSpeedBase(0.f, 0.f, 1.f);
+    }
 }
 
 //////////////////////////////////////////////////////////////////
@@ -285,6 +283,7 @@ std::expected<RoboCompVisualElementsPub::TObject, std::string> SpecificWorker::f
         return *p_;
     }
 }
+
 std::vector<QPolygonF> SpecificWorker::find_person_polygon_and_remove(const RoboCompVisualElementsPub::TObject &person, const std::vector<QPolygonF> &obstacles)
 {
     std::vector<QPolygonF> new_obs;
@@ -308,11 +307,12 @@ std::vector<QPolygonF> SpecificWorker::find_person_polygon_and_remove(const Robo
     }
     return new_obs;
 }
+
 //////////////////////////////////////////////////////////////////
 /// STATE  MACHINE
 //////////////////////////////////////////////////////////////////
 // State machine to track a person
-SpecificWorker::RobotSpeed SpecificWorker::state_machine(const TPerson &person)
+SpecificWorker::RobotSpeed SpecificWorker::state_machine(const TPerson &person, vector<Eigen::Vector2f> path)
 {
     // call the appropriate state function
     RetVal res;
@@ -322,7 +322,7 @@ SpecificWorker::RobotSpeed SpecificWorker::state_machine(const TPerson &person)
     switch(state)
     {
         case STATE::TRACK:
-            res = track(person);
+            res = track(path);
             label_state->setText("TRACK");
             break;
         case STATE::WAIT:
@@ -355,7 +355,7 @@ SpecificWorker::RobotSpeed SpecificWorker::state_machine(const TPerson &person)
  * @return A `RetVal` tuple consisting of the state (`FORWARD` or `TURN`), speed, and rotation.
  */
  // State function to track a person
-SpecificWorker::RetVal SpecificWorker::track(const TPerson &person)
+SpecificWorker::RetVal SpecificWorker::track(vector<Eigen::Vector2f> path)
 {
     static float ant_angle_error = 0.0;
     //qDebug() << __FUNCTION__;
@@ -370,18 +370,29 @@ SpecificWorker::RetVal SpecificWorker::track(const TPerson &person)
         return (float)exp(-x*x/s);
     };
 
-    if(not person)
+    if(not path.empty())
     { /* qWarning() << __FUNCTION__ << "No person found"; */ return RetVal(STATE::SEARCH, 0.f, 0.f); }
+    // auto distance = 0.0f;
+    // for (const auto &p: iter::sliding_window(path, 2))
+    //     distance += (p[0] - p[1]).norm();
 
-    auto distance = std::hypot(std::stof(person.value().attributes.at("x_pos")), std::stof(person.value().attributes.at("y_pos")));
-    lcdNumber_dist_to_person->display(distance);
+    auto distance = std::accumulate(path.begin(), path.end(), 0.f, [](auto ac, auto b)
+        {
+            static Eigen::Vector2f last{0.f, 0.f};
+            auto r = ac + (last - b).normalized();
+            last = b;
+            return r;
+        });
+
+    // auto distance = std::hypot(std::stof(path.value().attributes.at("x_pos")), std::stof(path.value().attributes.at("y_pos")));
+    // lcdNumber_dist_to_person->display(distance);
 
     // check if the distance to the person is lower than a threshold
     if(distance < params.PERSON_MIN_DIST)
     { qWarning() << __FUNCTION__ << "Distance to person lower than threshold"; return RetVal(STATE::WAIT, 0.f, 0.f);}
 
     // angle error is the angle between the robot and the person. It has to be brought to zero
-    float angle_error = atan2(stof(person.value().attributes.at("x_pos")), stof(person.value().attributes.at("y_pos")));
+    float angle_error = atan2(path[1].x() ,path[1].y());
     float rot_speed = params.k1 * angle_error + params.k2 * (angle_error-ant_angle_error);
     ant_angle_error = angle_error;
     // rot_brake is a value between 0 and 1 that decreases the speed when the robot is not facing the person
@@ -423,6 +434,7 @@ SpecificWorker::RetVal SpecificWorker::stop()
 
     return RetVal (STATE::STOP, 0.f, 0.f);
 }
+
 /**
  * Draws LIDAR points onto a QGraphicsScene.
  *
