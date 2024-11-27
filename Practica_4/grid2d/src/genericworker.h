@@ -66,6 +66,7 @@ public:
 
 
 	RoboCompLidar3D::Lidar3DPrxPtr lidar3d_proxy;
+	RoboCompLidar3D::Lidar3DPrxPtr lidar3d1_proxy;
 
 	virtual RoboCompGrid2D::Result Grid2D_getPaths(RoboCompGrid2D::TPoint source, RoboCompGrid2D::TPoint target) = 0;
 

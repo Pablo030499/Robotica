@@ -17,6 +17,9 @@
  *    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "specificmonitor.h"
+
+
+
 /**
 * \brief Default constructor
 */
@@ -78,7 +81,6 @@ bool SpecificMonitor::sendParamsToWorker(RoboCompCommonBehavior::ParameterList p
 		rError("Incorrect parameters");
 	}
 	return false;
-
 }
 
 ///Local Component parameters read at start
@@ -97,41 +99,4 @@ bool SpecificMonitor::checkParams(RoboCompCommonBehavior::ParameterList l)
 {
 	bool correct = true;
 	return correct;
-}
-
-std::vector<Eigen::Vector2f> SpecificWorker::read_lidar_bpearl()
-{
-	try
-	{
-		auto ldata =  lidar3d1_proxy->getLidarData("bpearl", 0, 2*M_PI, 1);
-		// filter points according to height and distance
-		std::vector<Eigen::Vector2f>  p_filter;
-		for(const auto &a: ldata.points)
-		{
-			if(a.z < 500 and a.distance2d > 200)
-				p_filter.emplace_back(a.x, a.y);
-		}
-		return p_filter;
-	}
-	catch(const Ice::Exception &e){std::cout << e << std::endl;}
-	return {};
-}
-std::vector<Eigen::Vector2f> SpecificWorker::read_lidar_helios()
-{
-	try
-	{
-
-		auto ldata =  lidar3d_proxy->getLidarData("helios", 0, 2*M_PI, 2);
-		// filter points according to height and distance
-		std::vector<Eigen::Vector2f> p_filter;
-		for(const auto &a: ldata.points)
-		{
-			if(a.z > 1300 and a.distance2d > 200)
-				p_filter.emplace_back(a.x, a.y);
-		}
-
-		return p_filter;
-	}
-	catch(const Ice::Exception &e){std::cout << e << std::endl;}
-	return {};
 }

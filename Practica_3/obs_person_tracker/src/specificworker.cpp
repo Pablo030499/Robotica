@@ -85,6 +85,7 @@ void SpecificWorker::initialize()
 
 	}
 }
+
 void SpecificWorker::compute()
 {
      //read bpearl (lower) lidar and draw

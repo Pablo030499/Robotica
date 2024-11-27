@@ -21,6 +21,7 @@
 
 #include "genericmonitor.h"
 #include "abstract_graphic_viewer/abstract_graphic_viewer.h"
+#include <Eigen/Dense>
 
 /**
 * \brief
@@ -39,10 +40,6 @@ class SpecificMonitor : public GenericMonitor
     void initialize();
 	bool sendParamsToWorker(RoboCompCommonBehavior::ParameterList params);
 	bool checkParams(RoboCompCommonBehavior::ParameterList l);
-
-	// lidar
-	std::vector<Eigen::Vector2f> read_lidar_bpearl();
-	std::vector<Eigen::Vector2f> read_lidar_helios();
 	
 	bool ready;
 };

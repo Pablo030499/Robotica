@@ -17,6 +17,7 @@
  *    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "specificworker.h"
+#include <cppitertools/enumerate.hpp>
 
 /**
 * \brief Default constructor
@@ -63,37 +64,40 @@ void SpecificWorker::initialize()
 	}
 	else
 	{
+		// Viewer
+		viewer = new AbstractGraphicViewer(this->frame, params.GRID_MAX_DIM);
+		auto [r, e] = viewer->add_robot(params.ROBOT_WIDTH, params.ROBOT_LENGTH, 0, 100, QColor("Blue"));
+		robot_draw = r;
+		viewer->setStyleSheet("background-color: lightGray;");
+		this->resize(800, 700);
+		viewer->show();
 
-		#ifdef HIBERNATION_ENABLED
-			hibernationChecker.start(500);
-		#endif
+		//grid
+		QPen pen(Qt::blue, 20);
+		for ( const auto &[i, row] : grid | iter::enumerate)
+			for ( const auto &[j, cell] : row | iter::enumerate)
+			{
+				cell.item = viewer->scene.addRect(-CELLS/2, -CELLS/2, CELLS, CELLS, pen);
+				cell.item->setPos(grid_to_world(i, j));
+				cell.state = State::DESCONOCIDO;
+			}
 
 		this->setPeriod(STATES::Compute, 100);
 		//this->setPeriod(STATES::Emergency, 500);
-
 	}
+}
+
+QPointF grid_to_world(int i, int j) {
+
+}
+
+QPointF world_to_grid(int x, int y) {
 
 }
 
 void SpecificWorker::compute()
 {
-    std::cout << "Compute worker" << std::endl;
-	//computeCODE
-	//QMutexLocker locker(mutex);
-	//try
-	//{
-	//  camera_proxy->getYImage(0,img, cState, bState);
-    //    if (img.empty())
-    //        emit goToEmergency()
-	//  memcpy(image_gray.data, &img[0], m_width*m_height*sizeof(uchar));
-	//  searchTags(image_gray);
-	//}
-	//catch(const Ice::Exception &e)
-	//{
-	//  std::cout << "Error reading from Camera" << e << std::endl;
-	//}
-	
-	
+
 }
 
 std::vector<Eigen::Vector2f> SpecificWorker::read_lidar_bpearl()
@@ -108,25 +112,6 @@ std::vector<Eigen::Vector2f> SpecificWorker::read_lidar_bpearl()
 			if(a.z < 500 and a.distance2d > 200)
 				p_filter.emplace_back(a.x, a.y);
 		}
-		return p_filter;
-	}
-	catch(const Ice::Exception &e){std::cout << e << std::endl;}
-	return {};
-}
-std::vector<Eigen::Vector2f> SpecificWorker::read_lidar_helios()
-{
-	try
-	{
-
-		auto ldata =  lidar3d_proxy->getLidarData("helios", 0, 2*M_PI, 2);
-		// filter points according to height and distance
-		std::vector<Eigen::Vector2f> p_filter;
-		for(const auto &a: ldata.points)
-		{
-			if(a.z > 1300 and a.distance2d > 200)
-				p_filter.emplace_back(a.x, a.y);
-		}
-
 		return p_filter;
 	}
 	catch(const Ice::Exception &e){std::cout << e << std::endl;}
@@ -158,7 +143,6 @@ int SpecificWorker::startup_check()
 	return 0;
 }
 
-
 RoboCompGrid2D::Result SpecificWorker::Grid2D_getPaths(RoboCompGrid2D::TPoint source, RoboCompGrid2D::TPoint target)
 {
 #ifdef HIBERNATION_ENABLED
@@ -167,8 +151,6 @@ RoboCompGrid2D::Result SpecificWorker::Grid2D_getPaths(RoboCompGrid2D::TPoint so
 //implementCODE
 
 }
-
-
 
 /**************************************/
 // From the RoboCompLidar3D you can call this methods:
