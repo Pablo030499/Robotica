@@ -55,6 +55,39 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 	return true;
 }
 
+/**
+ * Draws LIDAR points onto a QGraphicsScene.
+ *
+ * This method clears any existing graphical items from the scene, then iterates over the filtered
+ * LIDAR points to add new items. Each LIDAR point is represented as a colored rectangle. The point
+ * with the minimum distance is highlighted in red, while the other points are drawn in green.
+ *
+ * @param filtered_points A collection of filtered points to be drawn, each containing the coordinates
+ *                        and distance.
+ * @param scene A pointer to the QGraphicsScene where the points will be drawn.
+ */
+void SpecificWorker::draw_lidar(auto &filtered_points, QGraphicsScene *scene)
+{
+	static std::vector<QGraphicsItem*> items;   // store items so they can be shown between iterations
+
+	// remove all items drawn in the previous iteration
+	for(auto i: items)
+	{
+		scene->removeItem(i);
+		delete i;
+	}
+	items.clear();
+
+	auto color = QColor(Qt::darkGreen);
+	auto brush = QBrush(QColor(Qt::darkGreen));
+	for(const auto &p : filtered_points)
+	{
+		auto item = scene->addRect(-50, -50, 100, 100, color, brush);
+		item->setPos(p.x(), p.y());
+		items.push_back(item);
+	}
+}
+
 void SpecificWorker::initialize()
 {
 	std::cout << "Initialize worker" << std::endl;
@@ -87,12 +120,18 @@ void SpecificWorker::initialize()
 	}
 }
 
-QPointF grid_to_world(int i, int j) {
+QPointF SpecificWorker::grid_to_world(int i, int j) {
+	int x  = DIMENSION*2/CELL_SIZE*i - DIMENSION;
+	int y  = -DIMENSION*2/CELL_SIZE*j + DIMENSION;
 
+	return QPointF(x, y);
 }
 
-QPointF world_to_grid(int x, int y) {
+QPointF SpecificWorker::world_to_grid(int x, int y) {
+	int i = CELL_SIZE/(DIMENSION*2)*x + CELL_SIZE/2;
+	int j = -CELL_SIZE/(DIMENSION*2)*y + CELL_SIZE/2;
 
+	return QPointF(i, j);
 }
 
 void SpecificWorker::compute()

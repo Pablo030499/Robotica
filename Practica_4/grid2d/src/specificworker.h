@@ -27,7 +27,7 @@
 #ifndef SPECIFICWORKER_H
 #define SPECIFICWORKER_H
 
-#define HIBERNATION_ENABLED
+//#define HIBERNATION_ENABLED
 
 #include <genericworker.h>
 #include "Lidar3D.h"
@@ -56,6 +56,7 @@ public slots:
 	void emergency();
 	void restore();
 	int startup_check();
+
 private:
 	bool startup_check_flag;
 	struct Params
@@ -83,29 +84,28 @@ private:
 	Params params;
 
 	//Casillas
+		enum class State
+		{
+			OCUPADA, LIBRE, DESCONOCIDO
+		};
+		struct TCell {State state; QGraphicsRectItem *item;  /* other fields */};
 
-	enum class State
-	{
-		OCUPADA, LIBRE, DESCONOCIDO
-	};
-	struct TCell {State state; QGraphicsRectItem *item;  /* other fields */};
+		constexpr static int DIMENSION = 5000;
+		static constexpr  int CELLS = 50;
+		static constexpr int CELL_SIZE = DIMENSION/CELLS;
 
-	constexpr static int DIMENSION = 5000;
-	static constexpr  int CELLS = 50;
-	static constexpr int CELL_SIZE = DIMENSION/CELLS;
+		using TGrid = std::array<std::array<TCell, CELLS>, CELLS>;
+		TGrid grid;
 
-	using TGrid = std::array<std::array<TCell, CELLS>, CELLS>;
-	TGrid grid;
+		// Given two array coordinates (i,j), returns world coordinates (x,y)
+		QPointF grid_to_world(int i, int j);
 
-	// Given two array coordinates (i,j), returns world coordinates (x,y)
-	QPointF grid_to_world(int i, int j);
+		// Given two world coordinates (x,y), returns world coordinates (i,j)
+		QPointF world_to_grid(int x, int y);
 
-	// Given two world coordinates (x,y), returns world coordinates (i,j)
-	QPointF world_to_grid(const int &x, const int &y);
 
 	// lidar
 	std::vector<Eigen::Vector2f> read_lidar_bpearl();
-
 
 	//draw
 	AbstractGraphicViewer *viewer;
@@ -115,8 +115,4 @@ private:
 	// QCustomPlot object
 	QCustomPlot *plot;
 };
-
-
-
-
 #endif
