@@ -18,7 +18,7 @@
  */
 #include "specificworker.h"
 #include <cppitertools/enumerate.hpp>
-
+#include <cppitertools/range.hpp>
 /**
 * \brief Default constructor
 */
@@ -136,7 +136,33 @@ QPointF SpecificWorker::world_to_grid(int x, int y) {
 
 void SpecificWorker::compute()
 {
+	//TODO Recorre todos los puntos LiDAR y, para cada uno, calcula la ecuación de la recta desde el centro (robot) hasta el punto.
+	auto points = read_lidar_bpearl();
+	compute_cells(points);
+}
 
+void SpecificWorker::compute_cells(auto points) {
+
+	for(const auto &p: points)
+	{
+		auto saltos = p.norm() / CELL_SIZE;
+		for(const auto &s: iter::range(0.f, 1.f, 1.f / saltos))
+		{
+			auto step = p * s;
+			auto celda = world_to_grid(step.x(), step.y());
+			QPoint coord = (int)celda.toPoint();
+
+			if (coord.x() >= 0 && coord.x() < CELL_SIZE && coord.y() >= 0 && coord.y() < CELL_SIZE) continue;
+			grid[coord.x()][coord.y()].item->setBrush(QColor(Qt::white));
+			grid[coord.x()][coord.y()].state = State::LIBRE;
+		}
+
+		auto celda = world_to_grid(p.x(), p.y());
+		QPoint coord = (int)celda.toPoint();
+		if (coord.x() >= 0 && coord.x() < CELL_SIZE && coord.y() >= 0 && coord.y() < CELL_SIZE) continue;
+		grid[coord.x()][coord.y()].item->setBrush(QColor(Qt::red));
+		grid[coord.x()][coord.y()].state = State::OCUPADA;
+	}
 }
 
 std::vector<Eigen::Vector2f> SpecificWorker::read_lidar_bpearl()

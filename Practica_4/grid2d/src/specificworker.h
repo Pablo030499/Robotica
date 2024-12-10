@@ -103,6 +103,8 @@ private:
 		// Given two world coordinates (x,y), returns world coordinates (i,j)
 		QPointF world_to_grid(int x, int y);
 
+		//Go over all LiDAR points and for each one, compute the line equation from the center (robot) to the point.
+		void compute_cells(auto points);
 
 	// lidar
 	std::vector<Eigen::Vector2f> read_lidar_bpearl();
