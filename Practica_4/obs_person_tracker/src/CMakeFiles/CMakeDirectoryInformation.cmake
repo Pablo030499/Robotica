@@ -3,7 +3,7 @@
 
 # Relative path conversion top directories.
 set(CMAKE_RELATIVE_PATH_TOP_SOURCE "/home/usuario/robocomp/components/G10_Robotica/Robotica/Practica_4/obs_person_tracker")
-set(CMAKE_RELATIVE_PATH_TOP_BINARY "/home/usuario/robocomp/components/G10_Robotica/Robotica/Practica_4/obs_person_tracker")
+set(CMAKE_RELATIVE_PATH_TOP_BINARY "/home/usuario/robocomp_ws/src/robocomp/components/G10_Robotica/Robotica/Practica_4/obs_person_tracker")
 
 # Force unix paths in dependencies.
 set(CMAKE_FORCE_UNIX_PATHS 1)

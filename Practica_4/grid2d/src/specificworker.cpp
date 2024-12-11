@@ -119,26 +119,50 @@ void SpecificWorker::initialize()
 		//this->setPeriod(STATES::Emergency, 500);
 	}
 }
-
+/*
 QPointF SpecificWorker::grid_to_world(int i, int j) {
-	int x  = DIMENSION*2/CELL_SIZE*i - DIMENSION;
-	int y  = -DIMENSION*2/CELL_SIZE*j + DIMENSION;
+	int x  = (DIMENSION*2/CELL_SIZE)*i - DIMENSION;
+	int y  = (-DIMENSION*2/CELL_SIZE)*j + DIMENSION;
 
 	return QPointF(x, y);
 }
 
 QPointF SpecificWorker::world_to_grid(int x, int y) {
-	int i = CELL_SIZE/(DIMENSION*2)*x + CELL_SIZE/2;
-	int j = -CELL_SIZE/(DIMENSION*2)*y + CELL_SIZE/2;
+	int i = CELL_SIZE/(DIMENSION*2)*x + CELLS;
+	int j = -CELL_SIZE/(DIMENSION*2)*y + CELLS;
+
+	return QPointF(i, j);
+}
+*/
+
+QPointF SpecificWorker::world_to_grid(int x, int y) {
+	int i = (x + DIMENSION) / CELL_SIZE;
+	int j = (-y + DIMENSION) / CELL_SIZE;
+
+	i = std::max(0, std::min(i, CELLS - 1));
+	j = std::max(0, std::min(j, CELLS - 1));
 
 	return QPointF(i, j);
 }
 
+QPointF SpecificWorker::grid_to_world(int i, int j) {
+	int x = (i - CELLS / 2) * CELL_SIZE;
+	int y = (CELLS / 2 - j) * CELL_SIZE;
+
+	return QPointF(x, y);
+}
+
+
 void SpecificWorker::compute()
 {
 	//TODO Recorre todos los puntos LiDAR y, para cada uno, calcula la ecuación de la recta desde el centro (robot) hasta el punto.
-	auto points = read_lidar_bpearl();
-	compute_cells(points);
+	try {
+		const auto points = read_lidar_bpearl();
+		compute_cells(points);
+	}
+
+	catch(const Ice::Exception &e) { std::cout << e.what() << std::endl; }
+
 }
 
 void SpecificWorker::compute_cells(auto points) {
@@ -150,18 +174,23 @@ void SpecificWorker::compute_cells(auto points) {
 		{
 			auto step = p * s;
 			auto celda = world_to_grid(step.x(), step.y());
-			QPoint coord = (int)celda.toPoint();
+			int x_index = static_cast<int>(celda.x());
+			std::cout << "x: " << x_index << endl;
+			int y_index = static_cast<int>(celda.y());
+			std::cout << "y: " << y_index << endl;
 
-			if (coord.x() >= 0 && coord.x() < CELL_SIZE && coord.y() >= 0 && coord.y() < CELL_SIZE) continue;
-			grid[coord.x()][coord.y()].item->setBrush(QColor(Qt::white));
-			grid[coord.x()][coord.y()].state = State::LIBRE;
+			if (not (x_index >= 0 && x_index < CELLS && y_index >= 0 && y_index < CELLS)) continue;
+			grid[x_index][y_index].item->setBrush(QColor(Qt::green));
+			grid[x_index][y_index].state = State::LIBRE;
 		}
 
 		auto celda = world_to_grid(p.x(), p.y());
-		QPoint coord = (int)celda.toPoint();
-		if (coord.x() >= 0 && coord.x() < CELL_SIZE && coord.y() >= 0 && coord.y() < CELL_SIZE) continue;
-		grid[coord.x()][coord.y()].item->setBrush(QColor(Qt::red));
-		grid[coord.x()][coord.y()].state = State::OCUPADA;
+		int x_index = static_cast<int>(celda.x());
+		int y_index = static_cast<int>(celda.y());
+
+		if (not (x_index >= 0 && x_index < CELLS && y_index >= 0 && y_index < CELLS)) continue;
+		grid[x_index][y_index].item->setBrush(QColor(Qt::red));
+		grid[x_index][y_index].state = State::OCUPADA;
 	}
 }
 
@@ -169,7 +198,7 @@ std::vector<Eigen::Vector2f> SpecificWorker::read_lidar_bpearl()
 {
 	try
 	{
-		auto ldata =  lidar3d1_proxy->getLidarData("bpearl", 0, 2*M_PI, 1);
+		auto ldata =  lidar3d_proxy->getLidarData("bpearl", 0, 2*M_PI, 1);
 		// filter points according to height and distance
 		std::vector<Eigen::Vector2f>  p_filter;
 		for(const auto &a: ldata.points)

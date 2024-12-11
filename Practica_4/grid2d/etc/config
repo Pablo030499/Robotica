@@ -1,11 +1,10 @@
 CommonBehavior.Endpoints=tcp -p 10000
 
 # Endpoints for implements interfaces
-Grid2D.Endpoints=tcp -p 13027
-
+Grid2D.Endpoints=tcp -p 13028
 
 # Proxies for required interfaces
-Lidar3DProxy = lidar3d:tcp -h localhost -p 11990
+Lidar3DProxy = lidar3d:tcp -h localhost -p 11989
 
 
 

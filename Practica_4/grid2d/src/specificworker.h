@@ -92,7 +92,7 @@ private:
 
 		constexpr static int DIMENSION = 5000;
 		static constexpr  int CELLS = 50;
-		static constexpr int CELL_SIZE = DIMENSION/CELLS;
+		static constexpr int CELL_SIZE = DIMENSION/CELLS; //100
 
 		using TGrid = std::array<std::array<TCell, CELLS>, CELLS>;
 		TGrid grid;

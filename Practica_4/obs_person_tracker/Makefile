@@ -60,7 +60,7 @@ EQUALS = =
 CMAKE_SOURCE_DIR = /home/usuario/robocomp/components/G10_Robotica/Robotica/Practica_4/obs_person_tracker
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/usuario/robocomp/components/G10_Robotica/Robotica/Practica_4/obs_person_tracker
+CMAKE_BINARY_DIR = /home/usuario/robocomp_ws/src/robocomp/components/G10_Robotica/Robotica/Practica_4/obs_person_tracker
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -132,9 +132,9 @@ install/strip/fast: preinstall/fast
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/usuario/robocomp/components/G10_Robotica/Robotica/Practica_4/obs_person_tracker/CMakeFiles /home/usuario/robocomp/components/G10_Robotica/Robotica/Practica_4/obs_person_tracker//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/usuario/robocomp_ws/src/robocomp/components/G10_Robotica/Robotica/Practica_4/obs_person_tracker/CMakeFiles /home/usuario/robocomp_ws/src/robocomp/components/G10_Robotica/Robotica/Practica_4/obs_person_tracker//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/usuario/robocomp/components/G10_Robotica/Robotica/Practica_4/obs_person_tracker/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/usuario/robocomp_ws/src/robocomp/components/G10_Robotica/Robotica/Practica_4/obs_person_tracker/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
