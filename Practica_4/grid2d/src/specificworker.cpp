@@ -119,40 +119,39 @@ void SpecificWorker::initialize()
 		//this->setPeriod(STATES::Emergency, 500);
 	}
 }
-/*
+
 QPointF SpecificWorker::grid_to_world(int i, int j) {
-	int x  = (DIMENSION*2/CELL_SIZE)*i - DIMENSION;
-	int y  = (-DIMENSION*2/CELL_SIZE)*j + DIMENSION;
+	int x  = (DIMENSION/CELL_SIZE)*i - DIMENSION/2;
+	int y  = (-DIMENSION/CELL_SIZE)*j + DIMENSION/2;
 
 	return QPointF(x, y);
 }
-
+/*
 QPointF SpecificWorker::world_to_grid(int x, int y) {
-	int i = CELL_SIZE/(DIMENSION*2)*x + CELLS;
-	int j = -CELL_SIZE/(DIMENSION*2)*y + CELLS;
+	int i = CELL_SIZE/(DIMENSION)*x + CELLS;
+	int j = -CELL_SIZE/(DIMENSION)*y + CELLS;
 
 	return QPointF(i, j);
 }
 */
 
 QPointF SpecificWorker::world_to_grid(int x, int y) {
-	int i = (x + DIMENSION) / CELL_SIZE;
-	int j = (-y + DIMENSION) / CELL_SIZE;
+	int i = (x + DIMENSION/2) / CELL_SIZE;
+	int j = (-y + DIMENSION/2) / CELL_SIZE;
 
 	i = std::max(0, std::min(i, CELLS - 1));
 	j = std::max(0, std::min(j, CELLS - 1));
 
 	return QPointF(i, j);
 }
-
+/*
 QPointF SpecificWorker::grid_to_world(int i, int j) {
 	int x = (i - CELLS / 2) * CELL_SIZE;
 	int y = (CELLS / 2 - j) * CELL_SIZE;
 
 	return QPointF(x, y);
 }
-
-
+*/
 void SpecificWorker::compute()
 {
 	//TODO Recorre todos los puntos LiDAR y, para cada uno, calcula la ecuación de la recta desde el centro (robot) hasta el punto.
@@ -167,6 +166,8 @@ void SpecificWorker::compute()
 
 void SpecificWorker::compute_cells(auto points) {
 
+	remove_cells_draw();
+	
 	for(const auto &p: points)
 	{
 		auto saltos = p.norm() / CELL_SIZE;
@@ -191,6 +192,14 @@ void SpecificWorker::compute_cells(auto points) {
 		if (not (x_index >= 0 && x_index < CELLS && y_index >= 0 && y_index < CELLS)) continue;
 		grid[x_index][y_index].item->setBrush(QColor(Qt::red));
 		grid[x_index][y_index].state = State::OCUPADA;
+	}
+}
+
+void SpecificWorker::remove_cells_draw() {
+	for(auto i: iter::range(0, CELLS)) {
+		for(auto j: iter::range(0, CELLS)) {
+			grid[i][j].item->setBrush(QColor(Qt::white));
+		}
 	}
 }
 

@@ -90,9 +90,9 @@ private:
 		};
 		struct TCell {State state; QGraphicsRectItem *item;  /* other fields */};
 
-		constexpr static int DIMENSION = 5000;
-		static constexpr  int CELLS = 50;
-		static constexpr int CELL_SIZE = DIMENSION/CELLS; //100
+		constexpr static int DIMENSION = 10000;
+		static constexpr  int CELL_SIZE = 100;
+		static constexpr int CELLS = DIMENSION/CELL_SIZE; //100
 
 		using TGrid = std::array<std::array<TCell, CELLS>, CELLS>;
 		TGrid grid;
@@ -105,6 +105,8 @@ private:
 
 		//Go over all LiDAR points and for each one, compute the line equation from the center (robot) to the point.
 		void compute_cells(auto points);
+
+		void remove_cells_draw();
 
 	// lidar
 	std::vector<Eigen::Vector2f> read_lidar_bpearl();
