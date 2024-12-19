@@ -55,6 +55,7 @@ public slots:
 	void compute();
 	void emergency();
 	void restore();
+	void mouseClick(QPointF);
 	int startup_check();
 
 private:
@@ -80,6 +81,7 @@ private:
 		float acc_distance_factor = 2;
 		float k1 = 1.1;  // proportional gain for the angle error;
 		float k2 = 0.5; // proportional gain for derivative of the angle error;
+
 	};
 	Params params;
 
@@ -93,6 +95,8 @@ private:
 		constexpr static int DIMENSION = 10000;
 		static constexpr  int CELL_SIZE = 100;
 		static constexpr int CELLS = DIMENSION/CELL_SIZE; //100
+
+		QPointF mouse_pos;
 
 		using TGrid = std::array<std::array<TCell, CELLS>, CELLS>;
 		TGrid grid;

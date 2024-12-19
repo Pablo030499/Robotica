@@ -19,6 +19,10 @@
 #include "specificworker.h"
 #include <cppitertools/enumerate.hpp>
 #include <cppitertools/range.hpp>
+#include <QMouseEvent>
+#include <QApplication>
+#include <QWidget>
+
 /**
 * \brief Default constructor
 */
@@ -114,9 +118,68 @@ void SpecificWorker::initialize()
 				cell.item->setPos(grid_to_world(i, j));
 				cell.state = State::DESCONOCIDO;
 			}
+		//connect
+		connect(viewer, SIGNAL(new_mouse_coordinates(QPointF)),this ,SLOT(mouseClick(QPointF)));
 
 		this->setPeriod(STATES::Compute, 100);
 		//this->setPeriod(STATES::Emergency, 500);
+	}
+}
+
+void SpecificWorker::compute()
+{
+	//TODO Recorre todos los puntos LiDAR y, para cada uno, calcula la ecuación de la recta desde el centro (robot) hasta el punto.
+	try {
+		const auto points = read_lidar_bpearl();
+		compute_cells(points);
+	}
+
+	catch(const Ice::Exception &e) { std::cout << e.what() << std::endl; }
+}
+
+void SpecificWorker::compute_cells(auto points) {
+
+	remove_cells_draw();
+
+	qDebug() << "Se ha clicado el raton en la posicion " << mouse_pos.x() << ", " << mouse_pos.y();
+
+	for(const auto &p: points)
+	{
+		auto saltos = p.norm() / CELL_SIZE;
+		for(const auto &s: iter::range(0.f, 1.f, 1.f / saltos))
+		{
+			auto step = p * s;
+			auto celda = world_to_grid(step.x(), step.y());
+			int x_index = static_cast<int>(celda.x());
+			//std::cout << "x: " << x_index << endl;
+			int y_index = static_cast<int>(celda.y());
+			//std::cout << "y: " << y_index << endl;
+
+			if (not (x_index >= 0 && x_index < CELLS && y_index >= 0 && y_index < CELLS)) continue;
+			grid[x_index][y_index].item->setBrush(QColor(Qt::green));
+			grid[x_index][y_index].state = State::LIBRE;
+		}
+
+		auto celda = world_to_grid(p.x(), p.y());
+		int x_index = static_cast<int>(celda.x());
+		int y_index = static_cast<int>(celda.y());
+
+		if (not (x_index >= 0 && x_index < CELLS && y_index >= 0 && y_index < CELLS)) continue;
+		grid[x_index][y_index].item->setBrush(QColor(Qt::red));
+		grid[x_index][y_index].state = State::OCUPADA;
+	}
+}
+
+void SpecificWorker::mouseClick(QPointF p) {
+	qDebug() << "Mouse click at " << p.x() << ", " << p.y();
+	mouse_pos.x() = QPointF(p.x(), p.y());
+}
+
+void SpecificWorker::remove_cells_draw() {
+	for(auto i: iter::range(0, CELLS)) {
+		for(auto j: iter::range(0, CELLS)) {
+			grid[i][j].item->setBrush(QColor(Qt::white));
+		}
 	}
 }
 
@@ -152,56 +215,6 @@ QPointF SpecificWorker::grid_to_world(int i, int j) {
 	return QPointF(x, y);
 }
 */
-void SpecificWorker::compute()
-{
-	//TODO Recorre todos los puntos LiDAR y, para cada uno, calcula la ecuación de la recta desde el centro (robot) hasta el punto.
-	try {
-		const auto points = read_lidar_bpearl();
-		compute_cells(points);
-	}
-
-	catch(const Ice::Exception &e) { std::cout << e.what() << std::endl; }
-
-}
-
-void SpecificWorker::compute_cells(auto points) {
-
-	remove_cells_draw();
-	
-	for(const auto &p: points)
-	{
-		auto saltos = p.norm() / CELL_SIZE;
-		for(const auto &s: iter::range(0.f, 1.f, 1.f / saltos))
-		{
-			auto step = p * s;
-			auto celda = world_to_grid(step.x(), step.y());
-			int x_index = static_cast<int>(celda.x());
-			std::cout << "x: " << x_index << endl;
-			int y_index = static_cast<int>(celda.y());
-			std::cout << "y: " << y_index << endl;
-
-			if (not (x_index >= 0 && x_index < CELLS && y_index >= 0 && y_index < CELLS)) continue;
-			grid[x_index][y_index].item->setBrush(QColor(Qt::green));
-			grid[x_index][y_index].state = State::LIBRE;
-		}
-
-		auto celda = world_to_grid(p.x(), p.y());
-		int x_index = static_cast<int>(celda.x());
-		int y_index = static_cast<int>(celda.y());
-
-		if (not (x_index >= 0 && x_index < CELLS && y_index >= 0 && y_index < CELLS)) continue;
-		grid[x_index][y_index].item->setBrush(QColor(Qt::red));
-		grid[x_index][y_index].state = State::OCUPADA;
-	}
-}
-
-void SpecificWorker::remove_cells_draw() {
-	for(auto i: iter::range(0, CELLS)) {
-		for(auto j: iter::range(0, CELLS)) {
-			grid[i][j].item->setBrush(QColor(Qt::white));
-		}
-	}
-}
 
 std::vector<Eigen::Vector2f> SpecificWorker::read_lidar_bpearl()
 {
