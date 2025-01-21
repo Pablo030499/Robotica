@@ -90,7 +90,12 @@ private:
 		{
 			OCUPADA, LIBRE, DESCONOCIDO
 		};
-		struct TCell {State state; QGraphicsRectItem *item;  /* other fields */};
+		struct TCell {
+			State state;
+			QGraphicsRectItem *item;
+			bool visitada = false;
+			float distancia = 0.f;
+			/* other fields */};
 
 		constexpr static int DIMENSION = 10000;
 		static constexpr  int CELL_SIZE = 100;
@@ -111,6 +116,8 @@ private:
 		void compute_cells(auto points);
 
 		void remove_cells_draw();
+
+		std::vector<QPointF> SpecificWorker::dijkstra(int startX, int startY, int endX, int endY);
 
 	// lidar
 	std::vector<Eigen::Vector2f> read_lidar_bpearl();

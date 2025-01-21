@@ -22,6 +22,10 @@
 #include <QMouseEvent>
 #include <QApplication>
 #include <QWidget>
+#include <queue>
+#include <vector>
+#include <limits>
+#include <algorithm>
 
 /**
 * \brief Default constructor
@@ -171,14 +175,22 @@ void SpecificWorker::compute_cells(auto points) {
 }
 
 void SpecificWorker::mouseClick(QPointF p) {
-	qDebug() << "Mouse click at " << p.x() << ", " << p.y();
-	mouse_pos.x() = QPointF(p.x(), p.y());
+	qDebug() << "Mouse click at (" << p.x() << ", " << p.y() << ")";
+
+	// Dibuja un marcador en el punto donde se hizo clic
+	auto item = viewer->scene.addEllipse(p.x() - 5, p.y() - 5, 10, 10, QPen(Qt::blue), QBrush(Qt::blue));
+	viewer->scene.update();
+	mouse_pos.setX(p.x());
+	mouse_pos.setY(p.y());
+
+	qDebug() << "Mouse_pos click at (" << mouse_pos.x() << ", " << mouse_pos.y() << ")";
 }
 
 void SpecificWorker::remove_cells_draw() {
 	for(auto i: iter::range(0, CELLS)) {
 		for(auto j: iter::range(0, CELLS)) {
 			grid[i][j].item->setBrush(QColor(Qt::white));
+			grid[i][j].state = State::DESCONOCIDO;
 		}
 	}
 }
@@ -207,6 +219,7 @@ QPointF SpecificWorker::world_to_grid(int x, int y) {
 
 	return QPointF(i, j);
 }
+
 /*
 QPointF SpecificWorker::grid_to_world(int i, int j) {
 	int x = (i - CELLS / 2) * CELL_SIZE;
@@ -232,6 +245,115 @@ std::vector<Eigen::Vector2f> SpecificWorker::read_lidar_bpearl()
 	}
 	catch(const Ice::Exception &e){std::cout << e << std::endl;}
 	return {};
+}
+
+float calculate_distance(const RoboCompGrid2D::TPoint &p1, const RoboCompGrid2D::TPoint &p2)
+{
+	float dx = p2.x - p1.x;
+	float dy = p2.y - p1.y;
+	return std::sqrt(dx * dx + dy * dy);
+}
+
+struct Coordenada {
+    int x, y;
+    float distancia;
+
+    bool operator>(const Coordenada& other) const {
+        return distancia > other.distancia;  // Usamos '>' para la cola de prioridad (min-heap)
+    }
+};
+
+std::vector<QPointF> SpecificWorker::dijkstra(int startX, int startY, int endX, int endY) {
+    // Direcciones posibles: arriba, abajo, izquierda, derecha
+    std::vector<std::pair<int, int>> direcciones = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+
+    // Cola de prioridad para almacenar las celdas por distancia (usamos la estructura Coordenada)
+    std::priority_queue<Coordenada, std::vector<Coordenada>, std::greater<Coordenada>> pq;
+
+    // Inicializamos la celda de inicio
+    grid[startX][startY].distancia = 0.0f;
+    pq.push({startX, startY, 0.0f});
+
+    // Inicializamos todas las celdas como no visitadas
+    for (int i = 0; i < CELLS; ++i) {
+        for (int j = 0; j < CELLS; ++j) {
+            grid[i][j].visitada = false;
+        }
+    }
+
+    // Procesamos las celdas mientras haya celdas en la cola
+    while (!pq.empty()) {
+        // Extraemos la celda con la menor distancia
+        Coordenada actual = pq.top();
+        pq.pop();
+
+        int x = actual.x;
+        int y = actual.y;
+
+        // Si ya visitamos esta celda, la ignoramos
+        if (grid[x][y].visitada) continue;
+        grid[x][y].visitada = true;
+
+        // Si hemos llegado al destino, terminamos
+        if (x == endX && y == endY) {
+            break;
+        }
+
+        // Explorar las celdas vecinas
+        for (const auto& direccion : direcciones) {
+            int nx = x + direccion.first;
+            int ny = y + direccion.second;
+
+            // Verificamos si la celda está dentro de los límites y es accesible
+            if (nx >= 0 && nx < CELLS && ny >= 0 && ny < CELLS && grid[nx][ny].state != State::OCUPADA) {
+                // Calculamos la nueva distancia (usamos CELL_SIZE como la distancia entre celdas)
+                float nuevaDistancia = grid[x][y].distancia + CELL_SIZE;
+
+                // Si encontramos una distancia más corta para esta celda, la actualizamos
+                if (nuevaDistancia < grid[nx][ny].distancia) {
+                    grid[nx][ny].distancia = nuevaDistancia;
+                    pq.push({nx, ny, nuevaDistancia});
+                }
+            }
+        }
+    }
+
+    // Si encontramos un camino, reconstruimos el camino desde el destino hacia el origen
+    std::vector<QPointF> path;
+    int x = endX;
+    int y = endY;
+
+    while (!(x == startX && y == startY)) {
+        // Añadimos la celda actual al camino usando world_to_grid para convertirla en QPointF
+        path.push_back(grid_to_world(x, y));
+
+        // Buscamos la celda anterior en el camino (la que tiene la menor distancia)
+        float minDistancia = std::numeric_limits<float>::infinity();
+        int prevX = x, prevY = y;
+
+        for (const auto& direccion : direcciones) {
+            int nx = x + direccion.first;
+            int ny = y + direccion.second;
+
+            if (nx >= 0 && nx < CELLS && ny >= 0 && ny < CELLS && grid[nx][ny].distancia < minDistancia) {
+                minDistancia = grid[nx][ny].distancia;
+                prevX = nx;
+                prevY = ny;
+            }
+        }
+
+        // Actualizamos la celda
+        x = prevX;
+        y = prevY;
+    }
+
+    // Añadimos el punto inicial al camino
+    path.push_back(grid_to_world(startX, startY));
+
+    // El camino está en orden inverso, por lo que lo revertimos
+    std::reverse(path.begin(), path.end());
+
+    return path;
 }
 
 void SpecificWorker::emergency()
