@@ -110,14 +110,24 @@ private:
 		QPointF grid_to_world(int i, int j);
 
 		// Given two world coordinates (x,y), returns world coordinates (i,j)
-		QPointF world_to_grid(int x, int y);
+		QPointF world_to_grid(float x, float y);
+
+		void set_ocuped_cells(int x_index, int y_index);
+
+		void rellenar_cells(int x_index, int y_index);
 
 		//Go over all LiDAR points and for each one, compute the line equation from the center (robot) to the point.
 		void compute_cells(auto points);
 
 		void remove_cells_draw();
 
-		std::vector<QPointF> SpecificWorker::dijkstra(int startX, int startY, int endX, int endY);
+		std::vector<QPointF> dijkstra(int startX, int startY, int endX, int endY);
+
+		void paintPath(const std::vector<QPointF>& path);
+
+		void printPath(const std::vector<QPointF>& path);
+
+		bool validGoal(int goalX, int goalY);
 
 	// lidar
 	std::vector<Eigen::Vector2f> read_lidar_bpearl();

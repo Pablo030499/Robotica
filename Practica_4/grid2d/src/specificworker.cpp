@@ -136,16 +136,37 @@ void SpecificWorker::compute()
 	try {
 		const auto points = read_lidar_bpearl();
 		compute_cells(points);
+		Grid2D_getPaths(RoboCompGrid2D::TPoint(0.f, 0.f), RoboCompGrid2D::TPoint(mouse_pos.x(), mouse_pos.y()));
 	}
 
 	catch(const Ice::Exception &e) { std::cout << e.what() << std::endl; }
+}
+
+void SpecificWorker::set_ocuped_cells(int x_index, int y_index) {
+	grid[x_index][y_index].item->setBrush(QColor(Qt::red));
+	grid[x_index][y_index+1].state = State::OCUPADA;
+	grid[x_index][y_index-1].item->setBrush(QColor(Qt::red));
+	grid[x_index-1][y_index].state = State::OCUPADA;
+	grid[x_index+1][y_index].item->setBrush(QColor(Qt::red));
+	grid[x_index-1][y_index-1].state = State::OCUPADA;
+	grid[x_index+1][y_index+1].item->setBrush(QColor(Qt::red));
+	grid[x_index+1][y_index-1].state = State::OCUPADA;
+	grid[x_index-1][y_index+1].item->setBrush(QColor(Qt::red));
+	//rellenar_cells(x_index, y_index);
+}
+
+void SpecificWorker::rellenar_cells(int x_index, int y_index) {
+		if(grid[x_index][y_index+1].state == State::OCUPADA && grid[x_index][y_index-1].state == State::OCUPADA
+			&& grid[x_index-1][y_index].state == State::OCUPADA && grid[x_index+1][y_index].state == State::OCUPADA){
+			grid[x_index][y_index+1].state = State::OCUPADA;
+		}
 }
 
 void SpecificWorker::compute_cells(auto points) {
 
 	remove_cells_draw();
 
-	qDebug() << "Se ha clicado el raton en la posicion " << mouse_pos.x() << ", " << mouse_pos.y();
+	//qDebug() << "Se ha clicado el raton en la posicion " << mouse_pos.x() << ", " << mouse_pos.y();
 
 	for(const auto &p: points)
 	{
@@ -168,9 +189,8 @@ void SpecificWorker::compute_cells(auto points) {
 		int x_index = static_cast<int>(celda.x());
 		int y_index = static_cast<int>(celda.y());
 
-		if (not (x_index >= 0 && x_index < CELLS && y_index >= 0 && y_index < CELLS)) continue;
-		grid[x_index][y_index].item->setBrush(QColor(Qt::red));
-		grid[x_index][y_index].state = State::OCUPADA;
+		if (not (x_index > 0 && x_index < CELLS-1 && y_index > 0 && y_index < CELLS-1)) continue;
+		set_ocuped_cells(x_index, y_index);
 	}
 }
 
@@ -210,7 +230,7 @@ QPointF SpecificWorker::world_to_grid(int x, int y) {
 }
 */
 
-QPointF SpecificWorker::world_to_grid(int x, int y) {
+QPointF SpecificWorker::world_to_grid(float x, float y) {
 	int i = (x + DIMENSION/2) / CELL_SIZE;
 	int j = (-y + DIMENSION/2) / CELL_SIZE;
 
@@ -247,13 +267,11 @@ std::vector<Eigen::Vector2f> SpecificWorker::read_lidar_bpearl()
 	return {};
 }
 
-float calculate_distance(const RoboCompGrid2D::TPoint &p1, const RoboCompGrid2D::TPoint &p2)
-{
-	float dx = p2.x - p1.x;
-	float dy = p2.y - p1.y;
+float calculate_euclidean_distance(int x1, int y1, int x2, int y2) {
+	float dx = static_cast<float>(x2 - x1);
+	float dy = static_cast<float>(y2 - y1);
 	return std::sqrt(dx * dx + dy * dy);
 }
-
 struct Coordenada {
     int x, y;
     float distancia;
@@ -265,7 +283,7 @@ struct Coordenada {
 
 std::vector<QPointF> SpecificWorker::dijkstra(int startX, int startY, int endX, int endY) {
     // Direcciones posibles: arriba, abajo, izquierda, derecha
-    std::vector<std::pair<int, int>> direcciones = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+    std::vector<std::pair<int, int>> direcciones = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}, {1, 1},{-1, 1},{-1, -1},{1, -1}};
 
     // Cola de prioridad para almacenar las celdas por distancia (usamos la estructura Coordenada)
     std::priority_queue<Coordenada, std::vector<Coordenada>, std::greater<Coordenada>> pq;
@@ -274,12 +292,14 @@ std::vector<QPointF> SpecificWorker::dijkstra(int startX, int startY, int endX, 
     grid[startX][startY].distancia = 0.0f;
     pq.push({startX, startY, 0.0f});
 
-    // Inicializamos todas las celdas como no visitadas
+    // Inicializamos todas las celdas como no visitadas y con distancia infinita
     for (int i = 0; i < CELLS; ++i) {
         for (int j = 0; j < CELLS; ++j) {
             grid[i][j].visitada = false;
+            grid[i][j].distancia = std::numeric_limits<float>::infinity();
         }
     }
+    grid[startX][startY].distancia = 0.0f;
 
     // Procesamos las celdas mientras haya celdas en la cola
     while (!pq.empty()) {
@@ -306,8 +326,8 @@ std::vector<QPointF> SpecificWorker::dijkstra(int startX, int startY, int endX, 
 
             // Verificamos si la celda está dentro de los límites y es accesible
             if (nx >= 0 && nx < CELLS && ny >= 0 && ny < CELLS && grid[nx][ny].state != State::OCUPADA) {
-                // Calculamos la nueva distancia (usamos CELL_SIZE como la distancia entre celdas)
-                float nuevaDistancia = grid[x][y].distancia + CELL_SIZE;
+                // Calculamos la nueva distancia usando la distancia euclidiana al punto final
+                float nuevaDistancia = grid[x][y].distancia + calculate_euclidean_distance(x, y, nx, ny);
 
                 // Si encontramos una distancia más corta para esta celda, la actualizamos
                 if (nuevaDistancia < grid[nx][ny].distancia) {
@@ -325,7 +345,7 @@ std::vector<QPointF> SpecificWorker::dijkstra(int startX, int startY, int endX, 
 
     while (!(x == startX && y == startY)) {
         // Añadimos la celda actual al camino usando world_to_grid para convertirla en QPointF
-        path.push_back(grid_to_world(x, y));
+        path.push_back(QPointF(x, y));
 
         // Buscamos la celda anterior en el camino (la que tiene la menor distancia)
         float minDistancia = std::numeric_limits<float>::infinity();
@@ -356,6 +376,29 @@ std::vector<QPointF> SpecificWorker::dijkstra(int startX, int startY, int endX, 
     return path;
 }
 
+void SpecificWorker::paintPath(const std::vector<QPointF>& path)
+{
+	for (int i = 0; i < path.size(); ++i)
+	{
+		grid[path[i].x()][path[i].y()].item->setBrush(QColor(Qt::yellow));
+	}
+}
+
+void SpecificWorker::printPath(const std::vector<QPointF>& path)
+{
+	for (const auto& point : path)
+	{
+		qDebug() << "Punto en el camino:" << point.x() << point.y();
+	}
+}
+
+bool SpecificWorker::validGoal(int goalX, int goalY){
+
+	if (grid[goalX][goalY].state != State::OCUPADA) {
+		return true;
+	}
+	return false;
+}
 void SpecificWorker::emergency()
 {
     std::cout << "Emergency worker" << std::endl;
@@ -388,6 +431,30 @@ RoboCompGrid2D::Result SpecificWorker::Grid2D_getPaths(RoboCompGrid2D::TPoint so
 #endif
 //implementCODE
 
+	qDebug() << "Coordenadas meta: " << target.x << target.y;
+	const QPointF index = world_to_grid(target.x, target.y);
+	int goalX = index.x();
+	int goalY = index.y();
+
+	if (goalX < 0 || goalX >= CELLS || goalY < 0 || goalY >= CELLS || !(validGoal(goalX, goalY)))
+	{
+		qDebug() << "Punto fuera del grid. ";
+		return {};
+	}
+
+	qDebug() << "Indices de la meta: " << goalX << goalY;
+	int startX = CELLS / 2;
+	int startY = CELLS / 2;
+
+	auto path = dijkstra(startX, startY, goalX, goalY);
+	printPath(path);
+	paintPath(path);
+	RoboCompGrid2D::Result result;
+	std::ranges::transform(path, std::back_inserter(result.path), [](const auto& p)
+			{ return RoboCompGrid2D::TPoint{p.x(), p.y()}; });
+	result.timestamp = QDateTime::currentMSecsSinceEpoch();
+	result.valid = !path.empty();
+	return result;
 }
 
 /**************************************/
